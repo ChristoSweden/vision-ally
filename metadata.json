@@ -1,0 +1,8 @@
+{
+  "name": "VisionAlly - AI Sight Assistant",
+  "description": "A real-time visual assistant for the visually impaired using Gemini Live API to describe surroundings and read text.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
