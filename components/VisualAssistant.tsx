@@ -236,6 +236,14 @@ const IconPathfinder = () => (
   </svg>
 );
 
+const IconPrice = () => (
+  <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-full h-full">
+    <path d="M12 2v20" />
+    <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+  </svg>
+);
+
+
 
 // --- Tool Declarations ---
 
@@ -374,7 +382,7 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
   const [isCrossingMode, setIsCrossingMode] = useState(false); // New Phase 3 Mode
   const [isZoomMode, setIsZoomMode] = useState(false); // New Phase 3 Mode (Expiry/Medication)
   const [landmarks, setLandmarks] = useState<{ name: string, description: string }[]>([]);
-  const [specialMode, setSpecialMode] = useState<'none' | 'social' | 'kitchen' | 'transit' | 'laundry' | 'appliance'>('none');
+  const [specialMode, setSpecialMode] = useState<'none' | 'social' | 'kitchen' | 'transit' | 'laundry' | 'appliance' | 'shop'>('none');
   const [isPathfinderMode, setIsPathfinderMode] = useState(false); // New Phase 6 Pathfinder Mode
   const [showToolbox, setShowToolbox] = useState(false); // v1.1.0 Simplified UI Toolbox
 
@@ -708,6 +716,12 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
             1. Monitor burners (on/off).
             2. Alert if water is boiling or toast is browning.
             3. Guide user to hot surfaces carefully.
+                        ` : specialMode === 'shop' ? `
+            **PRIORITY TASK (SHOPPING ALLY):**
+            1. SCAN for price tags, shelf labels, and barcodes.
+            2. Read the price AND the product name together (e.g., "Milk is 2 dollars 50").
+            3. Help user find specific brands or products on a shelf.
+            4. Keep the image stable—warn if it's too blurry to read.
             ` : specialMode === 'transit' ? `
             **PRIORITY TASK (TRANSIT SCOUT):**
             1. Scan specifically for bus numbers and train destination signs in the background.
@@ -1351,7 +1365,7 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
           ) : (
             <div className="flex flex-col items-center mx-2 truncate">
               <h1 className="text-3xl md:text-5xl font-extrabold text-yellow-400 tracking-wider drop-shadow-md" aria-label="Vision Ally">VisionAlly</h1>
-              <span className="text-[10px] font-mono text-zinc-500 mt-[-4px]">v1.1.2 (Interactive Zen)</span>
+              <span className="text-[10px] font-mono text-zinc-500 mt-[-4px]">v1.1.3 (Shopping Edition)</span>
             </div>
           )}
 
@@ -1609,7 +1623,22 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
                 <div className="w-12 h-12 text-white"><IconKitchen /></div>
                 <div className="text-3xl font-bold text-white">Kitchen Assistant</div>
               </button>
+
+              {/* Shopping Assistant */}
+              <button
+                onClick={() => {
+                  if (checkFeatureAccess('shop', 'Shopping Assistant')) {
+                    setSpecialMode(specialMode === 'shop' ? 'none' : 'shop');
+                    setShowToolbox(false);
+                  }
+                }}
+                className={`h-32 rounded-[2rem] border-4 flex items-center px-8 gap-6 ${specialMode === 'shop' ? 'bg-yellow-600 border-yellow-300' : 'bg-zinc-900 border-zinc-700'}`}
+              >
+                <div className="w-12 h-12 text-white"><IconPrice /></div>
+                <div className="text-3xl font-bold text-white">Shopping Assistant</div>
+              </button>
             </div>
+
           </div>
         )}
 
