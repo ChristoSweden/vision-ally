@@ -1,8 +1,13 @@
 import React from 'react';
 import { VisualAssistant } from './components/VisualAssistant';
+import { SubscriptionProvider } from './components/SubscriptionContext';
 
 function App() {
-  const apiKey = process.env.API_KEY;
+  // Support multiple common naming conventions for Vercel/Vite compatibility
+  // Support multiple common naming conventions for Vercel/Vite compatibility
+  // We check for 'process' safely to avoid "process is not defined" errors in browser
+  const apiKey = (import.meta as any).env?.VITE_GEMINI_API_KEY ||
+    (typeof process !== 'undefined' && process.env ? (process.env as any).GEMINI_API_KEY || (process.env as any).API_KEY : null);
 
   if (!apiKey) {
     return (
@@ -16,9 +21,11 @@ function App() {
   }
 
   return (
-    <div className="bg-black min-h-screen">
-      <VisualAssistant apiKey={apiKey} />
-    </div>
+    <SubscriptionProvider>
+      <div className="bg-black min-h-screen">
+        <VisualAssistant apiKey={apiKey} />
+      </div>
+    </SubscriptionProvider>
   );
 }
 

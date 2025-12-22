@@ -1,4 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { useSubscription } from './SubscriptionContext';
+import { SubscriptionModal } from './SubscriptionModal';
 import { GoogleGenAI, LiveServerMessage, Modality, FunctionDeclaration, Type } from '@google/genai';
 import { LIVE_MODEL, COLORS } from '../utils/constants';
 import { createAudioBlob, decodeBase64ToBytes, decodeAudioData, blobToBase64, playEarcon, setupVoiceProcessingChain, createWavBlob } from '../utils/audioUtils';
@@ -170,6 +172,60 @@ const IconZoom = () => (
   </svg>
 );
 
+const IconSocial = () => (
+  <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-full h-full">
+    <path d="M18 8a3 3 0 0 0-3-3H5a3 3 0 0 0-3 3v8a3 3 0 0 0 3 3h12a3 3 0 0 0 3-3V8Z" />
+    <circle cx="8" cy="12" r="2" />
+    <path d="M16 12h.01" />
+  </svg>
+);
+
+const IconKitchen = () => (
+  <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-full h-full">
+    <path d="M18 10V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v6" />
+    <path d="M3 10h18" />
+    <path d="M4 10v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V10" />
+    <path d="M12 14v4" />
+  </svg>
+);
+
+const IconTransit = () => (
+  <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-full h-full">
+    <rect width="16" height="16" x="4" y="2" rx="2" />
+    <path d="M4 14h16" />
+    <path d="M8 18v2" />
+    <path d="M16 18v2" />
+    <path d="M7 6h.01" />
+    <path d="M17 6h.01" />
+  </svg>
+);
+
+const IconLaundry = () => (
+  <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-full h-full">
+    <circle cx="12" cy="13" r="5" />
+    <path d="M12 8V5" />
+    <path d="M12 21v-3" />
+    <path d="M5 13H2" />
+    <path d="M22 13h-3" />
+  </svg>
+);
+
+const IconAppliance = () => (
+  <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-full h-full">
+    <rect width="18" height="12" x="3" y="6" rx="2" />
+    <path d="M7 12h10" />
+    <path d="M7 15h4" />
+  </svg>
+);
+
+const IconPathfinder = () => (
+  <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-full h-full">
+    <path d="M12 2L2 7l10 5 10-5-10-5z" />
+    <path d="M2 17l10 5 10-5" />
+    <path d="M2 12l10 5 10-5" />
+  </svg>
+);
+
 
 // --- Tool Declarations ---
 
@@ -248,6 +304,18 @@ const triggerHapticTool: FunctionDeclaration = {
   },
 };
 
+const rememberLandmarkTool: FunctionDeclaration = {
+  name: 'rememberLandmark',
+  description: 'Save a specific indoor location or landmark. Use when user says "This is the [Name]".',
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      name: { type: Type.STRING, description: 'The name of the landmark (e.g., Front Door).' },
+    },
+    required: ['name'],
+  },
+};
+
 const getLocationTool: FunctionDeclaration = {
   name: 'getLocation',
   description: 'Get the users current GPS coordinates and address to answer "Where am I?" questions.',
@@ -295,6 +363,24 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
   const [isDocumentMode, setIsDocumentMode] = useState(false); // New Phase 2 Mode
   const [isCrossingMode, setIsCrossingMode] = useState(false); // New Phase 3 Mode
   const [isZoomMode, setIsZoomMode] = useState(false); // New Phase 3 Mode (Expiry/Medication)
+  const [landmarks, setLandmarks] = useState<{ name: string, description: string }[]>([]);
+  const [specialMode, setSpecialMode] = useState<'none' | 'social' | 'kitchen' | 'transit' | 'laundry' | 'appliance'>('none');
+  const [isPathfinderMode, setIsPathfinderMode] = useState(false); // New Phase 6 Pathfinder Mode
+
+  // Subscription Hook & State
+  const { userTier, credits, isFeatureLocked, spendCredit } = useSubscription();
+  const [isSubModalOpen, setIsSubModalOpen] = useState(false);
+  const [lockedFeatureName, setLockedFeatureName] = useState<string | undefined>(undefined);
+
+  const checkFeatureAccess = (featureId: string, name: string) => {
+    if (isFeatureLocked(featureId)) {
+      setLockedFeatureName(name);
+      setIsSubModalOpen(true);
+      triggerHaptic([100, 50, 100]); // "Locked" haptic pattern
+      return false;
+    }
+    return true;
+  };
 
   // Media Refs
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -377,20 +463,30 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
     return matches ? matches.map(s => s.trim()).filter(s => s.length > 0) : [text];
   };
 
-  // --- Face Management ---
-  useEffect(() => {
-    const savedFaces = localStorage.getItem('visionally_faces');
-    if (savedFaces) {
-      try { setFaces(JSON.parse(savedFaces)); } catch (e) { }
-    }
-  }, []);
-
   const saveFace = (name: string, description: string) => {
     const newFaces = [...faces, { name, description }];
     setFaces(newFaces);
     localStorage.setItem('visionally_faces', JSON.stringify(newFaces));
     playSystemSound('success');
   };
+
+  const saveLandmark = (name: string, description: string) => {
+    const newLandmarks = [...landmarks, { name, description }];
+    setLandmarks(newLandmarks);
+    localStorage.setItem('visionally_landmarks', JSON.stringify(newLandmarks));
+    playSystemSound('success');
+  };
+
+  useEffect(() => {
+    const savedFaces = localStorage.getItem('visionally_faces');
+    if (savedFaces) {
+      try { setFaces(JSON.parse(savedFaces)); } catch (e) { }
+    }
+    const savedLandmarks = localStorage.getItem('visionally_landmarks');
+    if (savedLandmarks) {
+      try { setLandmarks(JSON.parse(savedLandmarks)); } catch (e) { }
+    }
+  }, []);
 
   const handleGetLocation = async (): Promise<any> => {
     return new Promise((resolve) => {
@@ -477,37 +573,21 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
     };
 
     try {
-      // Attempt 1: Strict mode for mobile back camera to force switch
-      if (faceMode === 'environment') {
-        return await navigator.mediaDevices.getUserMedia({
-          audio: audioConstraints,
-          video: {
-            facingMode: { exact: 'environment' },
-            width: { ideal: 1280 },
-            height: { ideal: 720 }
-          }
-        });
-      }
-
-      // Front camera or default
+      // Attempt 1: Moderate constraints (Safari compatible)
       return await navigator.mediaDevices.getUserMedia({
         audio: audioConstraints,
         video: {
-          facingMode: 'user',
-          width: { ideal: 640 },
-          height: { ideal: 480 }
+          facingMode: faceMode, // Relaxed: no 'exact' for better iOS/Safari support
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
         }
       });
     } catch (e) {
-      console.warn("Strict camera constraint failed, falling back to ideal", e);
-      // Fallback: Relaxed constraints if strict fails (e.g. Desktop, incompatible device)
+      console.warn("Standard camera constraint failed, falling back to minimal", e);
+      // Fallback: Minimalist constraints
       return await navigator.mediaDevices.getUserMedia({
         audio: audioConstraints,
-        video: {
-          facingMode: { ideal: faceMode },
-          width: { ideal: 640 },
-          height: { ideal: 480 }
-        }
+        video: true
       });
     }
   };
@@ -550,14 +630,25 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
 
       const config = {
         responseModalities: [Modality.AUDIO],
-        tools: [{ functionDeclarations: [flashlightTool, switchCameraTool, privacyModeTool, getLocationTool, rememberFaceTool, monitorTrafficLightTool, triggerHapticTool] }],
+        tools: [{ functionDeclarations: [flashlightTool, switchCameraTool, privacyModeTool, getLocationTool, rememberFaceTool, monitorTrafficLightTool, triggerHapticTool, rememberLandmarkTool] }],
         systemInstruction: `
             You are VisionAlly, a visual assistant for the blind.
-            Current Camera View: ${facingMode === 'user' ? 'Front-facing (User Face)' : 'World-facing (Environment)'}.
+            Current Perspective: ${facingMode === 'user' ? 'Looking at you' : 'Looking out into the world'}.
             
-            **MODE**: ${findingTarget ? `OBJECT HUNTER ACTIVE. Target: "${findingTarget}"` : isCrossingMode ? "SAFE CROSSING MONITOR ACTIVE" : "General Assistant"}
+            **IMMERSIVE PERSONA**: Never say "I see a picture" or "In this image." 
+            Talk as if you are standing next to the user in a 3D space. 
+            Use phrases like "The room opens up to your left," "There is a table about three steps ahead of you," or "The floor is clear directly in front of your feet."
+            
+            **CRITICAL SAFETY RULE**: ALWAYS ANALYZE FROM NEAR-TO-FAR (GROUND-UP). 
+            Prioritize the GROUND and FOREGROUND (0-2 meters). 
+            Warn about low-lying obstacles (rugs, shoes, steps) before background objects.
+
+            **VISUAL Q&A**: If the user asks "Where am I?" or "Describe my surroundings," provide an immersive, spatial description of the environment.
+            
+            **MODE**: ${findingTarget ? `OBJECT HUNTER ACTIVE. Target: "${findingTarget}"` : isCrossingMode ? "SAFE CROSSING MONITOR ACTIVE" : isPathfinderMode ? "PATHFINDER NAVIGATION ACTIVE" : specialMode !== 'none' ? `${specialMode.toUpperCase()} ASSISTANT ACTIVE` : "General Assistant"}
             
             **KNOWN PEOPLE**: ${faces.length > 0 ? faces.map(f => `${f.name} (${f.description})`).join(', ') : "None registered yet."}
+            **KNOWN LANDMARKS**: ${landmarks.length > 0 ? landmarks.map(l => `${l.name} (${l.description})`).join(', ') : "None registered yet."}
             
             **LANGUAGE**: Speak in ${language}.
             
@@ -585,29 +676,61 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
             ` : isZoomMode ? `
             **PRIORITY TASK (EXPIRY/MEDICATION):**
             1. Scan for expiry dates or medicine names.
-            2. Read fine print precisely.
+            2. Read fine print precisely (Zoom is active).
             3. Alert if a date is in the past.
+            ` : isPathfinderMode ? `
+            **PRIORITY TASK (PATHFINDER):**
+            1. SCAN for clear walking paths in complex/cluttered areas.
+            2. Identify a "corridor of space" where the user can safely step.
+            3. Use 'triggerHaptic' pattern "pulse" when the path is clear.
+            4. Say "Path clear ahead" or "Obstacle at 11 o'clock" to guide movement.
+            5. Prioritize the area directly in front of the user's feet.
+            ` : specialMode === 'social' ? `
+            **PRIORITY TASK (SOCIAL INTEL):**
+            1. Describe facial expressions and body language of people in view.
+            2. Tell user if they are being looked at.
+            3. Note emotions (Smiling, Confused, Bored).
+            ` : specialMode === 'kitchen' ? `
+            **PRIORITY TASK (KITCHEN SAFETY):**
+            1. Monitor burners (on/off).
+            2. Alert if water is boiling or toast is browning.
+            3. Guide user to hot surfaces carefully.
+            ` : specialMode === 'transit' ? `
+            **PRIORITY TASK (TRANSIT SCOUT):**
+            1. Scan specifically for bus numbers and train destination signs in the background.
+            2. Announce any route numbers detected immediately.
+            ` : specialMode === 'laundry' ? `
+            **PRIORITY TASK (LAUNDRY CARE):**
+            1. Identify care symbols on clothing labels.
+            2. Look for stains or marks on garments.
+            3. Describe fabric colors and patterns precisely.
+            ` : specialMode === 'appliance' ? `
+            **PRIORITY TASK (APPLIANCE EYE):**
+            1. Read digital displays (LED/LCD) on appliances like washing machines or microwaves.
+            2. Report remaining time or current settings.
             ` : `
             **TASKS:**
             1. **Active Framing:** Guide user to center text/objects.
-            2. **Recognition:** Announce known people if they appear: ${faces.map(f => f.name).join(', ')}.
+            2. **Recognition:** Announce known people or landmarks if they appear.
             3. **Text Reading:** READ ALL TEXT VERBATIM.
             4. **Safety:** Warn of obstacles <1m away. Say "STOP" if dangerous.
-            5. **Finding:** Scan for user requested items.
-            6. **Fashion:** If asked about clothes, describe colors and patterns precisely.
-            7. **Radar:** Alert user of object proximity (AI will calculate haptic pulses).
-            8. **Location:** If user asks "Where am I?", use the 'getLocation' tool.
-            9. **Identify:** If user asks "What is this?", identify barcodes, currency, or objects precisely.
-            10. **Memorizing:** If user says "This is [Name]", use 'rememberFace' tool.
-            11. **Crossing:** If user asks for help crossing, use 'monitorTrafficLight' tool.
+            5. **Finding:** Scan for requested items.
+            6. **Fashion:** Describe colors and patterns.
+            7. **Radar:** Alert user of object proximity (trigger haptics).
+            8. **Location:** Use 'getLocation' tool.
+            9. **Identify:** Identify barcodes, currency, or objects.
+            10. **Memorizing:** Use 'rememberFace' for people or 'rememberLandmark' for locations (e.g., "This is my door").
+            11. **Crossing:** Use 'monitorTrafficLight' tool.
             `}
 
             **Tools:** 
              - Use 'setFlashlight' if too dark.
-             - Use 'switchCamera' if user asks to flip view or see themselves.
-             - Use 'setPrivacyMode' if user asks to turn off screen or save battery.
-             - Use 'getLocation' ONLY if user explicitly asks for location.
-             - Use 'monitorTrafficLight' for street crossing safety.
+             - Use 'switchCamera' for flipping view.
+             - Use 'setPrivacyMode' for battery/privacy.
+             - Use 'getLocation' for coordinates.
+             - Use 'monitorTrafficLight' for street safety.
+             - Use 'triggerHaptic' for Go/Stop signals.
+             - Use 'rememberLandmark' to save interesting locations.
 
             **INTERACTION:**
             - Be warm but efficient.
@@ -886,6 +1009,10 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
           const name = (fc.args as any).name;
           result = `ok, memorizing ${name}. Please provide a 5-word visual description.`;
           saveFace(name, "Person currently in view");
+        } else if (fc.name === 'rememberLandmark') {
+          const name = (fc.args as any).name;
+          result = `ok, memorizing landmark ${name}.`;
+          saveLandmark(name, "Location in current view");
         } else if (fc.name === 'monitorTrafficLight') {
           const active = (fc.args as any).active;
           setIsCrossingMode(active);
@@ -1212,11 +1339,21 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
             <h1 className="text-3xl md:text-5xl font-extrabold text-yellow-400 tracking-wider drop-shadow-md truncate mx-2" aria-label="Vision Ally">VisionAlly</h1>
           )}
 
-          <button onClick={(e) => { e.stopPropagation(); switchCamera(); }}
-            className="flex-shrink-0 w-20 h-20 md:w-24 md:h-24 p-5 rounded-full bg-gray-900 border-4 border-gray-700 text-white hover:bg-gray-800 active:bg-gray-700 transition-colors shadow-lg"
-            aria-label={`Switch Camera. Current: ${facingMode === 'environment' ? 'Back Facing' : 'Front Facing'}`}>
-            <IconCameraSwitch />
-          </button>
+          <div className="flex flex-col items-center">
+            <button onClick={(e) => { e.stopPropagation(); switchCamera(); }}
+              className="flex-shrink-0 w-20 h-20 md:w-24 md:h-24 p-5 rounded-full bg-gray-900 border-4 border-gray-700 text-white hover:bg-gray-800 active:bg-gray-700 transition-colors shadow-lg"
+              aria-label={`Switch Camera. Current: ${facingMode === 'environment' ? 'Back Facing' : 'Front Facing'}`}>
+              <IconCameraSwitch />
+            </button>
+            {/* Tier Badge / Credits */}
+            <div className="mt-1 flex items-center gap-1">
+              {userTier === 'pro' ? (
+                <span className="text-[10px] font-black bg-amber-500 text-black px-2 py-0.5 rounded-full border border-amber-300">PRO</span>
+              ) : (
+                <span className="text-[10px] font-black bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded-full border border-zinc-700">{credits} Credits</span>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* --- New Controls: Grid(Edge), Location, Finder --- */}
@@ -1305,6 +1442,26 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
               <IconTrafficLight />
             </button>
 
+            {/* Pathfinder Navigation Toggle */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                if (checkFeatureAccess('pathfinder', 'Pathfinder Navigation')) {
+                  const newMode = !isPathfinderMode;
+                  setIsPathfinderMode(newMode);
+                  if (newMode) spendCredit();
+                  triggerHaptic(30);
+                }
+              }}
+              className={`w-16 h-16 p-4 rounded-full flex items-center justify-center shadow-lg border-4 ${isPathfinderMode
+                ? 'bg-blue-600 border-blue-400 text-white shadow-[0_0_20px_rgba(37,99,235,0.5)]'
+                : 'bg-gray-900/80 border-gray-600 text-white backdrop-blur-md'
+                }`}
+              aria-label="Pathfinder Navigation Mode"
+            >
+              <IconPathfinder />
+            </button>
+
             {/* Expiry / Medication Zoom Toggle */}
             <button
               onClick={(e) => { e.stopPropagation(); setIsZoomMode(!isZoomMode); triggerHaptic(30); }}
@@ -1315,6 +1472,85 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
               aria-label="Expiry Zoom Mode"
             >
               <IconZoom />
+            </button>
+          </div>
+
+          {/* Phase 4 Lifestyle Column */}
+          <div className="flex flex-col gap-4">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                if (checkFeatureAccess('social', 'Social Intelligence')) {
+                  const newMode = specialMode === 'social' ? 'none' : 'social';
+                  setSpecialMode(newMode);
+                  if (newMode === 'social') spendCredit();
+                  triggerHaptic(30);
+                }
+              }}
+              className={`w-16 h-16 p-4 rounded-full flex items-center justify-center shadow-lg border-4 ${specialMode === 'social' ? 'bg-pink-500 border-pink-300' : 'bg-gray-900/80 border-gray-600'}`}
+              aria-label="Social Intelligence Mode"
+            >
+              <IconSocial />
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                if (checkFeatureAccess('kitchen', 'Kitchen Safety')) {
+                  const newMode = specialMode === 'kitchen' ? 'none' : 'kitchen';
+                  setSpecialMode(newMode);
+                  if (newMode === 'kitchen') spendCredit();
+                  triggerHaptic(30);
+                }
+              }}
+              className={`w-16 h-16 p-4 rounded-full flex items-center justify-center shadow-lg border-4 ${specialMode === 'kitchen' ? 'bg-red-500 border-red-300' : 'bg-gray-900/80 border-gray-600'}`}
+              aria-label="Kitchen Safety Mode"
+            >
+              <IconKitchen />
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                if (checkFeatureAccess('transit', 'Transit Scout')) {
+                  const newMode = specialMode === 'transit' ? 'none' : 'transit';
+                  setSpecialMode(newMode);
+                  if (newMode === 'transit') spendCredit();
+                  triggerHaptic(30);
+                }
+              }}
+              className={`w-16 h-16 p-4 rounded-full flex items-center justify-center shadow-lg border-4 ${specialMode === 'transit' ? 'bg-indigo-500 border-indigo-300' : 'bg-gray-900/80 border-gray-600'}`}
+              aria-label="Transit Scout Mode"
+            >
+              <IconTransit />
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                if (checkFeatureAccess('laundry', 'Laundry Care')) {
+                  const newMode = specialMode === 'laundry' ? 'none' : 'laundry';
+                  setSpecialMode(newMode);
+                  if (newMode === 'laundry') spendCredit();
+                  triggerHaptic(30);
+                }
+              }}
+              className={`w-16 h-16 p-4 rounded-full flex items-center justify-center shadow-lg border-4 ${specialMode === 'laundry' ? 'bg-cyan-500 border-cyan-300' : 'bg-gray-900/80 border-gray-600'}`}
+              aria-label="Laundry Care Mode"
+            >
+              <IconLaundry />
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                if (checkFeatureAccess('appliance', 'Appliance Eye')) {
+                  const newMode = specialMode === 'appliance' ? 'none' : 'appliance';
+                  setSpecialMode(newMode);
+                  if (newMode === 'appliance') spendCredit();
+                  triggerHaptic(30);
+                }
+              }}
+              className={`w-16 h-16 p-4 rounded-full flex items-center justify-center shadow-lg border-4 ${specialMode === 'appliance' ? 'bg-emerald-500 border-emerald-300' : 'bg-gray-900/80 border-gray-600'}`}
+              aria-label="Appliance Eye Mode"
+            >
+              <IconAppliance />
             </button>
           </div>
         </div>
@@ -1511,6 +1747,12 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
           )}
         </div>
       </div>
+      {/* Subscription Modal */}
+      <SubscriptionModal
+        isOpen={isSubModalOpen}
+        onClose={() => setIsSubModalOpen(false)}
+        featureName={lockedFeatureName}
+      />
     </div>
   );
 };
