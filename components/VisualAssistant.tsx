@@ -154,6 +154,16 @@ const IconFileText = () => (
   </svg>
 );
 
+
+const IconMic = () => (
+  <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-full h-full">
+    <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+    <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+    <line x1="12" y1="19" x2="12" y2="22" />
+  </svg>
+);
+
+
 const IconTrafficLight = () => (
   <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-full h-full">
     <rect width="6" height="16" x="9" y="4" rx="3" />
@@ -1341,7 +1351,7 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
           ) : (
             <div className="flex flex-col items-center mx-2 truncate">
               <h1 className="text-3xl md:text-5xl font-extrabold text-yellow-400 tracking-wider drop-shadow-md" aria-label="Vision Ally">VisionAlly</h1>
-              <span className="text-[10px] font-mono text-zinc-500 mt-[-4px]">v1.1.1 (Mobile Zen)</span>
+              <span className="text-[10px] font-mono text-zinc-500 mt-[-4px]">v1.1.2 (Interactive Zen)</span>
             </div>
           )}
 
@@ -1436,16 +1446,38 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
           </div>
 
           {/* Bottom Permanent Controls */}
-          <div className="w-full pb-8 px-8 flex justify-between items-end gap-6">
+          <div className="w-full pb-8 px-8 flex justify-between items-end gap-4 pointer-events-auto">
+
+            {/* Tools Button */}
             <button
               onClick={(e) => { e.stopPropagation(); setShowToolbox(true); triggerHaptic(30); }}
-              className="flex-1 h-24 bg-white/10 backdrop-blur-xl border-4 border-white/20 rounded-[2.5rem] flex items-center justify-center gap-4 active:bg-white/20 transition-all shadow-2xl pointer-events-auto"
+              className="w-24 h-24 bg-white/10 backdrop-blur-xl border-4 border-white/20 rounded-[2rem] flex flex-col items-center justify-center gap-1 active:bg-white/20 transition-all shadow-2xl"
               aria-label="Open Tools"
             >
-              <div className="w-10 h-10"><IconGrid /></div>
-              <span className="text-3xl font-black text-white uppercase">Tools</span>
+              <div className="w-8 h-8"><IconGrid /></div>
+              <span className="text-[10px] font-black text-white uppercase">Tools</span>
             </button>
 
+            {/* Primary Interaction Button (Ask/Talk) */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                triggerHaptic(50);
+                if (isActive) {
+                  // If already active, trigger a visual analysis request
+                  sessionRef.current?.sendRealtimeInput([{ text: "What do you see right now? Describe it clearly." }]);
+                } else {
+                  startSessionWithConfig();
+                }
+              }}
+              className={`flex-1 h-28 rounded-[2.5rem] flex items-center justify-center gap-4 border-4 transition-all shadow-2xl ${isActive ? 'bg-yellow-400 border-yellow-200 text-black' : 'bg-zinc-800 border-zinc-600 text-white animate-pulse'}`}
+              aria-label={isActive ? "Ask Vision Ally" : "Start Vision Assistant"}
+            >
+              <div className="w-10 h-10">{isActive ? <IconMic /> : <IconPlay />}</div>
+              <span className="text-3xl font-black uppercase tracking-tight">{isActive ? "Ask Ally" : "Start"}</span>
+            </button>
+
+            {/* Location Button */}
             <button
               onClick={async (e) => {
                 e.stopPropagation();
@@ -1456,10 +1488,11 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
                   startSessionWithConfig("Where am I?");
                 }
               }}
-              className="w-24 h-24 bg-blue-600 border-4 border-blue-400 rounded-full flex items-center justify-center text-white active:bg-blue-500 shadow-2xl pointer-events-auto"
+              className="w-24 h-24 bg-blue-600 border-4 border-blue-400 rounded-full flex flex-col items-center justify-center gap-1 text-white active:bg-blue-500 shadow-2xl"
               aria-label="Location"
             >
-              <IconMapPin />
+              <div className="w-8 h-8"><IconMapPin /></div>
+              <span className="text-[10px] font-black uppercase">Where</span>
             </button>
           </div>
         </div>
