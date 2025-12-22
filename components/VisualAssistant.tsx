@@ -432,6 +432,15 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
 
   // --- Helpers ---
 
+  const announceInterface = (text: string) => {
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel(); // Stop any pending UI announcements
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = 1.2;
+      window.speechSynthesis.speak(utterance);
+    }
+  };
+
   const triggerHaptic = (pattern: number | number[]) => {
     if (navigator.vibrate) navigator.vibrate(pattern);
   };
@@ -466,6 +475,7 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
   const toggleLanguage = (e: React.MouseEvent) => {
     e.stopPropagation();
     setShowLanguageModal(true);
+    announceInterface("Opening Language Selection");
   };
 
   const selectLanguage = (e: React.MouseEvent, lang: string) => {
@@ -473,6 +483,7 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
     setLanguage(lang);
     setShowLanguageModal(false);
     triggerHaptic([50]);
+    announceInterface(`Language set to ${lang}`);
   };
 
   const splitTextIntoSentences = (text: string): string[] => {
@@ -495,6 +506,27 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
     localStorage.setItem('visionally_landmarks', JSON.stringify(newLandmarks));
     playSystemSound('success');
   };
+
+  // --- Leveling Haptics (Accessibility) ---
+  useEffect(() => {
+    if (!isDocumentMode && specialMode !== 'shop' && !isZoomMode) return;
+
+    let lastPulse = 0;
+    const handleOrientation = (e: DeviceOrientationEvent) => {
+      if (!e.beta || !e.gamma) return;
+
+      const isLevel = Math.abs(e.beta) < 10 && Math.abs(e.gamma) < 10;
+      const now = Date.now();
+
+      if (isLevel && now - lastPulse > 1000) {
+        triggerHaptic(30); // Single subtle tap when level
+        lastPulse = now;
+      }
+    };
+
+    window.addEventListener('deviceorientation', handleOrientation);
+    return () => window.removeEventListener('deviceorientation', handleOrientation);
+  }, [isDocumentMode, specialMode, isZoomMode]);
 
   useEffect(() => {
     const savedFaces = localStorage.getItem('visionally_faces');
@@ -1256,14 +1288,39 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
     const now = Date.now();
     touchStartYRef.current = e.touches[0].clientY;
 
-    // Double Tap Logic
-    if (now - lastTapRef.current < 300) {
-      triggerHaptic([50]);
-      if (isActive) handleStopWithAnalysis();
-      else if (!isAnalyzing && playlist.length === 0) startSession();
-      lastTapRef.current = 0;
-    } else {
-      lastTapRef.current = now;
+    // Multi-Finger Gestures
+    if (e.touches.length === 2) {
+      // 2 Fingers: Status Update
+      triggerHaptic([50, 50]);
+      const statusText = `Status: ${status}. Mode: ${specialMode === 'none' ? 'General' : specialMode}. ${userTier === 'pro' ? 'Pro Tier' : credits + ' credits remaining'}.`;
+      announceInterface(statusText);
+      return;
+    }
+
+    if (e.touches.length === 3) {
+      // 3 Fingers: Privacy Toggle
+      const newState = !privacyMode;
+      setPrivacyMode(newState);
+      triggerHaptic(newState ? [100, 50] : [50, 100]);
+      announceInterface(newState ? "Screen Curtain On" : "Screen Curtain Off");
+      return;
+    }
+
+    // Double Tap Logic (1 finger)
+    if (e.touches.length === 1) {
+      if (now - lastTapRef.current < 300) {
+        triggerHaptic([50]);
+        if (isActive) {
+          handleStopWithAnalysis();
+          announceInterface("Stopping and analyzing");
+        } else if (!isAnalyzing && playlist.length === 0) {
+          startSession();
+          announceInterface("Starting session");
+        }
+        lastTapRef.current = 0;
+      } else {
+        lastTapRef.current = now;
+      }
     }
   };
 
@@ -1347,7 +1404,12 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
 
         {/* Header */}
         <div className="w-full flex justify-between items-center px-2 py-2 gap-2" role="banner">
-          <button onClick={(e) => { e.stopPropagation(); setPrivacyMode(!privacyMode); }}
+          <button onClick={(e) => {
+            e.stopPropagation();
+            const newState = !privacyMode;
+            setPrivacyMode(newState);
+            announceInterface(newState ? "Screen Curtain On" : "Screen Curtain Off");
+          }}
             className="flex-shrink-0 w-20 h-20 md:w-24 md:h-24 p-5 rounded-full bg-gray-900 border-4 border-gray-700 text-white hover:bg-gray-800 active:bg-gray-700 transition-colors shadow-lg"
             aria-label={privacyMode ? "Disable Privacy Screen (Turn Screen On)" : "Enable Privacy Screen (Turn Screen Off)"}>
             {privacyMode ? <IconEyeOff /> : <IconEye />}
@@ -1365,12 +1427,16 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
           ) : (
             <div className="flex flex-col items-center mx-2 truncate">
               <h1 className="text-3xl md:text-5xl font-extrabold text-yellow-400 tracking-wider drop-shadow-md" aria-label="Vision Ally">VisionAlly</h1>
-              <span className="text-[10px] font-mono text-zinc-500 mt-[-4px]">v1.1.3 (Shopping Edition)</span>
+              <span className="text-[10px] font-mono text-zinc-500 mt-[-4px]">v1.2.0 (Sonic Edition)</span>
             </div>
           )}
 
           <div className="flex flex-col items-center">
-            <button onClick={(e) => { e.stopPropagation(); switchCamera(); }}
+            <button onClick={(e) => {
+              e.stopPropagation();
+              switchCamera();
+              announceInterface(facingMode === 'environment' ? "Front Camera Active" : "Back Camera Active");
+            }}
               className="flex-shrink-0 w-20 h-20 md:w-24 md:h-24 p-5 rounded-full bg-gray-900 border-4 border-gray-700 text-white hover:bg-gray-800 active:bg-gray-700 transition-colors shadow-lg"
               aria-label={`Switch Camera. Current: ${facingMode === 'environment' ? 'Back Facing' : 'Front Facing'}`}>
               <IconCameraSwitch />
@@ -1464,7 +1530,12 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
 
             {/* Tools Button */}
             <button
-              onClick={(e) => { e.stopPropagation(); setShowToolbox(true); triggerHaptic(30); }}
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowToolbox(true);
+                triggerHaptic(30);
+                announceInterface("Opening Tools Menu");
+              }}
               className="w-24 h-24 bg-white/10 backdrop-blur-xl border-4 border-white/20 rounded-[2rem] flex flex-col items-center justify-center gap-1 active:bg-white/20 transition-all shadow-2xl"
               aria-label="Open Tools"
             >
@@ -1480,8 +1551,10 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
                 if (isActive) {
                   // If already active, trigger a visual analysis request
                   sessionRef.current?.sendRealtimeInput([{ text: "What do you see right now? Describe it clearly." }]);
+                  announceInterface("Analyzing current view");
                 } else {
                   startSessionWithConfig();
+                  announceInterface("Starting session");
                 }
               }}
               className={`flex-1 h-28 rounded-[2.5rem] flex items-center justify-center gap-4 border-4 transition-all shadow-2xl ${isActive ? 'bg-yellow-400 border-yellow-200 text-black' : 'bg-zinc-800 border-zinc-600 text-white animate-pulse'}`}
@@ -1519,7 +1592,10 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
             <div className="flex justify-between items-center mb-12">
               <h2 className="text-5xl font-black text-white">Tools</h2>
               <button
-                onClick={() => setShowToolbox(false)}
+                onClick={() => {
+                  setShowToolbox(false);
+                  announceInterface("Closing tools");
+                }}
                 className="w-20 h-20 bg-zinc-800 rounded-full flex items-center justify-center text-white border-4 border-zinc-600"
               >
                 <IconExit />
@@ -1531,9 +1607,11 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
               <button
                 onClick={() => {
                   if (checkFeatureAccess('pathfinder', 'Pathfinder Navigation')) {
-                    setIsPathfinderMode(!isPathfinderMode);
+                    const newState = !isPathfinderMode;
+                    setIsPathfinderMode(newState);
                     setShowToolbox(false);
                     triggerHaptic(30);
+                    announceInterface(newState ? "Pathfinder Navigation Active" : "Pathfinder Off");
                   }
                 }}
                 className={`h-32 rounded-[2rem] border-4 flex items-center px-8 gap-6 transition-all ${isPathfinderMode ? 'bg-blue-600 border-blue-300' : 'bg-zinc-900 border-zinc-700'}`}
@@ -1547,7 +1625,12 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
 
               {/* Object Hunter */}
               <button
-                onClick={() => { setShowFinderModal(true); setShowToolbox(false); triggerHaptic(30); }}
+                onClick={() => {
+                  setShowFinderModal(true);
+                  setShowToolbox(false);
+                  triggerHaptic(30);
+                  announceInterface("Select object to find");
+                }}
                 className={`h-32 rounded-[2rem] border-4 flex items-center px-8 gap-6 transition-all ${isFindingMode ? 'bg-green-600 border-green-300' : 'bg-zinc-900 border-zinc-700'}`}
               >
                 <div className="w-12 h-12 text-white"><IconSearch /></div>
@@ -1559,7 +1642,12 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
 
               {/* Safe Crossing */}
               <button
-                onClick={() => { setIsCrossingMode(!isCrossingMode); setShowToolbox(false); triggerHaptic(30); }}
+                onClick={() => {
+                  setIsCrossingMode(!isCrossingMode);
+                  setShowToolbox(false);
+                  triggerHaptic(30);
+                  announceInterface(isCrossingMode ? "Traffic Light Monitor Off" : "Traffic Light Monitor Active");
+                }}
                 className={`h-32 rounded-[2rem] border-4 flex items-center px-8 gap-6 transition-all ${isCrossingMode ? 'bg-red-600 border-red-300' : 'bg-zinc-900 border-zinc-700'}`}
               >
                 <div className="w-12 h-12 text-white"><IconTrafficLight /></div>
@@ -1628,8 +1716,10 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
               <button
                 onClick={() => {
                   if (checkFeatureAccess('shop', 'Shopping Assistant')) {
-                    setSpecialMode(specialMode === 'shop' ? 'none' : 'shop');
+                    const next = specialMode === 'shop' ? 'none' : 'shop';
+                    setSpecialMode(next as any);
                     setShowToolbox(false);
+                    announceInterface(next === 'shop' ? "Shopping Assistant Active" : "Shopping Mode Off");
                   }
                 }}
                 className={`h-32 rounded-[2rem] border-4 flex items-center px-8 gap-6 ${specialMode === 'shop' ? 'bg-yellow-600 border-yellow-300' : 'bg-zinc-900 border-zinc-700'}`}
