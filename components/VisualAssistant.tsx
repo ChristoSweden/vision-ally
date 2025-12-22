@@ -1261,7 +1261,7 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
 
   return (
     <div
-      className="flex flex-col h-screen w-full bg-black text-white relative overflow-hidden select-none"
+      className="flex flex-col h-[100dvh] w-full bg-black text-white relative overflow-hidden select-none"
       onTouchStart={handleTouchStart}
       role="application"
       aria-label="Vision Assistant Application. Double tap screen to toggle session, or use controls below."
@@ -1341,7 +1341,7 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
           ) : (
             <div className="flex flex-col items-center mx-2 truncate">
               <h1 className="text-3xl md:text-5xl font-extrabold text-yellow-400 tracking-wider drop-shadow-md" aria-label="Vision Ally">VisionAlly</h1>
-              <span className="text-[10px] font-mono text-zinc-500 mt-[-4px]">v1.1.0 (Zen Edition)</span>
+              <span className="text-[10px] font-mono text-zinc-500 mt-[-4px]">v1.1.1 (Mobile Zen)</span>
             </div>
           )}
 
@@ -1362,33 +1362,90 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
           </div>
         </div>
 
-        {/* --- v1.1.0 Zen UI Implementation --- */}
-        <div className="w-full h-full flex flex-col justify-between items-center pointer-events-none relative z-20">
+        {/* --- v1.1.1 Zen & Mobile-Fixed UI --- */}
+        <div className="flex-1 w-full flex flex-col justify-between items-center relative z-20 overflow-hidden">
 
-          {/* Main Interaction Area (Invisible) */}
-          <div
-            className="flex-1 w-full pointer-events-auto"
-            onClick={() => {
-              if (isActive) stopSession();
-              else startSessionWithConfig();
-              triggerHaptic(50);
-            }}
-            aria-label={isActive ? "Stop Interaction" : "Start Interaction"}
-          />
+          {/* Top Status Area (Floating) */}
+          <div className="absolute top-4 left-0 w-full flex flex-col items-center gap-2 pointer-events-none z-30">
+            {(isActive || isAnalyzing || error) && status !== "Ready" && (
+              <div className={`text-2xl font-mono font-bold px-6 py-4 rounded-2xl border-4 shadow-xl ${isActive ? 'bg-green-900 border-green-500' : 'bg-zinc-800 border-zinc-600'}`}>
+                {status}
+              </div>
+            )}
+            {error && <div className="bg-red-900 text-white px-6 py-4 rounded-2xl border-4 border-red-500 animate-bounce">{error}</div>}
+          </div>
 
-          {/* Bottom Control Bar */}
-          <div className="w-full pb-8 px-8 flex justify-between items-end gap-6 pointer-events-auto">
-            {/* Toolbox Toggle */}
+          {/* Central Interaction Zone (Main Action) */}
+          <div className="flex-1 w-full flex flex-col items-center justify-center p-4">
+
+            {/* Visualizer / Audio Controls Group */}
+            {playlist.length > 0 ? (
+              showTextReader ? (
+                /* Reader View (Document Scanner) */
+                <div className="w-full h-full max-w-3xl bg-black border-4 border-yellow-500 rounded-[3rem] p-6 overflow-y-auto shadow-2xl flex flex-col gap-6 pointer-events-auto">
+                  {playlist.map((item, idx) => (
+                    <p key={idx} id={`sentence-${idx}`} className={`text-3xl font-bold p-6 rounded-3xl transition-all ${idx === currentTrackIndex ? 'bg-yellow-400 text-black' : 'text-zinc-500 bg-zinc-900'}`}>
+                      {item.text}
+                    </p>
+                  ))}
+                  <div className="h-10" />
+                </div>
+              ) : (
+                /* Regular Audio Player */
+                <div className="w-full max-w-sm bg-zinc-900/90 backdrop-blur-xl border-4 border-yellow-500 rounded-[3rem] p-6 shadow-2xl pointer-events-auto">
+                  <button onClick={(e) => { e.stopPropagation(); handleAudioControl('restart'); }} className="w-full py-4 bg-blue-600 rounded-2xl text-2xl font-bold border-4 border-blue-400 mb-4">
+                    Restart Description
+                  </button>
+                  <div className="flex justify-center items-center gap-4">
+                    <button onClick={(e) => { e.stopPropagation(); handleAudioControl('rewind'); }} className="w-16 h-16 bg-zinc-800 rounded-full border-2 border-zinc-600 flex items-center justify-center"><IconRewind /></button>
+                    <button onClick={(e) => { e.stopPropagation(); handleAudioControl(isPlayingAudio ? 'pause' : 'play'); }} className="w-24 h-24 bg-yellow-400 rounded-full border-4 border-yellow-200 text-black flex items-center justify-center shadow-xl">
+                      {isPlayingAudio ? <IconPause /> : <IconPlay />}
+                    </button>
+                    <button onClick={(e) => { e.stopPropagation(); handleAudioControl('forward'); }} className="w-16 h-16 bg-zinc-800 rounded-full border-2 border-zinc-600 flex items-center justify-center"><IconForward /></button>
+                  </div>
+                  <button onClick={(e) => { e.stopPropagation(); setShowTextReader(true); }} className="w-full mt-4 py-3 bg-zinc-800 rounded-xl text-xl font-bold border-2 border-zinc-700 flex items-center justify-center gap-2">
+                    <div className="w-6 h-6"><IconFileText /></div> Show Text
+                  </button>
+                </div>
+              )
+            ) : (
+              <div
+                className="w-full h-full flex flex-col items-center justify-center pointer-events-auto"
+                onClick={() => {
+                  if (isActive) stopSession();
+                  else startSessionWithConfig();
+                  triggerHaptic(50);
+                }}
+              >
+                {(!isActive && !isAnalyzing) ? (
+                  <div className="flex flex-col items-center gap-6 animate-pulse">
+                    <div className="w-48 h-48 rounded-full border-[12px] border-yellow-400 flex items-center justify-center text-yellow-400">
+                      <div className="w-24 h-24"><IconPlay /></div>
+                    </div>
+                    <span className="text-5xl font-black text-white text-center">TAP TO START</span>
+                  </div>
+                ) : (
+                  <div className={`w-64 h-64 rounded-full border-[12px] flex items-center justify-center shadow-2xl bg-black/50 ${isAnalyzing ? 'border-blue-500 animate-pulse' : 'border-yellow-500'}`} style={{ transform: `scale(${1 + volume / 100})` }}>
+                    <div className="w-32 h-32 text-white/90">
+                      {isAnalyzing ? <IconAnalyze /> : (facingMode === 'user' ? <IconEye /> : <IconCameraSwitch />)}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Bottom Permanent Controls */}
+          <div className="w-full pb-8 px-8 flex justify-between items-end gap-6">
             <button
               onClick={(e) => { e.stopPropagation(); setShowToolbox(true); triggerHaptic(30); }}
-              className="flex-1 h-28 bg-white/10 backdrop-blur-xl border-4 border-white/20 rounded-[2.5rem] flex items-center justify-center gap-4 active:bg-white/20 transition-all shadow-2xl"
-              aria-label="Open Tools and Specialized Modes"
+              className="flex-1 h-24 bg-white/10 backdrop-blur-xl border-4 border-white/20 rounded-[2.5rem] flex items-center justify-center gap-4 active:bg-white/20 transition-all shadow-2xl pointer-events-auto"
+              aria-label="Open Tools"
             >
               <div className="w-10 h-10"><IconGrid /></div>
-              <span className="text-3xl font-black text-white tracking-widest uppercase">Tools</span>
+              <span className="text-3xl font-black text-white uppercase">Tools</span>
             </button>
 
-            {/* Quick Location (Primary Accessibility) */}
             <button
               onClick={async (e) => {
                 e.stopPropagation();
@@ -1399,13 +1456,14 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
                   startSessionWithConfig("Where am I?");
                 }
               }}
-              className="w-28 h-28 bg-blue-600 border-4 border-blue-400 rounded-full flex items-center justify-center text-white active:bg-blue-500 shadow-2xl"
-              aria-label="Where am I?"
+              className="w-24 h-24 bg-blue-600 border-4 border-blue-400 rounded-full flex items-center justify-center text-white active:bg-blue-500 shadow-2xl pointer-events-auto"
+              aria-label="Location"
             >
               <IconMapPin />
             </button>
           </div>
         </div>
+
 
 
         {/* --- v1.1.0 Toolbox Drawer --- */}
@@ -1546,174 +1604,9 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
           </div>
         )}
 
-        {/* Status Display - Live Region */}
-        {(isActive || isAnalyzing || error) && status !== "Ready" && (
-          <div
-            className={`text-4xl font-mono font-bold px-8 py-6 rounded-3xl inline-block transition-colors border-4 shadow-xl mb-4 ${isActive ? 'bg-green-900 text-green-100 border-green-500' : 'bg-gray-800 text-gray-100 border-gray-500'}`}
-            role="status"
-            aria-live="polite"
-          >
-            {status}
-          </div>
-        )}
 
-        {/* Low Light Warning - Alert */}
-        {(isLowLight && facingMode === 'environment') &&
-          <div
-            className="text-3xl font-bold bg-yellow-900 text-yellow-100 border-4 border-yellow-500 px-8 py-4 rounded-3xl inline-block mx-2 animate-pulse mb-4"
-            role="alert"
-          >
-            ⚠️ LOW LIGHT
-          </div>
-        }
-
-        {/* Error Notification - Alert */}
-        {error &&
-          <div
-            className="bg-red-900 text-white text-3xl p-6 rounded-3xl font-bold border-4 border-red-500 shadow-2xl animate-bounce mb-4"
-            role="alert"
-          >
-            {error}
-          </div>
-        }
-
-        {/* Visualizer (Center) or Audio Controls */}
-        <div className="flex-1 flex items-center justify-center w-full my-4 relative">
-          {playlist.length > 0 ? (
-            showTextReader ? (
-              // Reader View
-              <div className="w-full h-[50vh] md:h-[60vh] max-w-3xl bg-black border-4 border-yellow-500 rounded-[3rem] p-6 overflow-y-auto shadow-2xl flex flex-col gap-6" role="region" aria-label="Text Reader">
-                {playlist.map((item, idx) => (
-                  <p
-                    key={idx}
-                    id={`sentence-${idx}`}
-                    className={`text-4xl md:text-5xl font-bold p-6 rounded-3xl transition-all leading-relaxed ${idx === currentTrackIndex ? 'bg-yellow-400 text-black shadow-lg scale-[1.02]' : 'text-gray-500 bg-gray-900'}`}
-                  >
-                    {item.text}
-                  </p>
-                ))}
-                <div ref={readerEndRef} className="h-10" />
-              </div>
-            ) : (
-              // Regular Audio Controls
-              <div className="w-full max-w-2xl flex flex-col items-center gap-6 p-6 bg-gray-900/90 rounded-[3rem] border-4 border-yellow-500 shadow-2xl backdrop-blur-md" role="region" aria-label="Audio Player Controls">
-                <button onClick={(e) => { e.stopPropagation(); handleAudioControl('restart'); }} className="w-full py-6 bg-blue-600 text-white rounded-2xl text-3xl font-bold border-4 border-blue-400 active:bg-blue-700 mb-2 flex items-center justify-center gap-4 shadow-lg">
-                  <div className="w-10 h-10"><IconRestart /></div> Start Again
-                </button>
-                <div className="flex justify-center items-center gap-6 w-full">
-                  <button onClick={(e) => { e.stopPropagation(); handleAudioControl('rewind'); }} className="flex-1 aspect-square p-6 bg-gray-800 rounded-full border-4 border-gray-600 active:bg-gray-700 text-white shadow-lg flex items-center justify-center" aria-label="Rewind 5 seconds">
-                    <IconRewind />
-                  </button>
-                  <button onClick={(e) => { e.stopPropagation(); handleAudioControl(isPlayingAudio ? 'pause' : 'play'); }} className="w-32 h-32 p-8 bg-yellow-400 rounded-full border-8 border-yellow-200 text-black active:scale-95 transition-transform shadow-xl flex items-center justify-center" aria-label={isPlayingAudio ? "Pause Audio" : "Play Audio"}>
-                    {isPlayingAudio ? <IconPause /> : <IconPlay />}
-                  </button>
-                  <button onClick={(e) => { e.stopPropagation(); handleAudioControl('forward'); }} className="flex-1 aspect-square p-6 bg-gray-800 rounded-full border-4 border-gray-600 active:bg-gray-700 text-white shadow-lg flex items-center justify-center" aria-label="Forward 5 seconds">
-                    <IconForward />
-                  </button>
-                </div>
-              </div>
-            )
-          ) : (
-            (isActive || isAnalyzing) && !error && !privacyMode && (
-              <div className={`w-64 h-64 rounded-full border-[12px] flex items-center justify-center transition-all shadow-[0_0_80px_rgba(255,255,255,0.2)] bg-black/50 ${isAnalyzing ? 'border-blue-500 animate-pulse' : 'border-yellow-500'}`}
-                style={{ transform: `scale(${1 + volume / 100})` }}
-                aria-hidden="true"
-              >
-                <div className="w-32 h-32 text-white/90">
-                  {isAnalyzing ? <IconAnalyze /> : (facingMode === 'user' ? <IconEye /> : <IconCameraSwitch />)}
-                </div>
-              </div>
-            )
-          )}
-
-          {/* Show Text Toggle Button - Floating or Positioned */}
-          {playlist.length > 0 && (
-            <button
-              onClick={(e) => { e.stopPropagation(); setShowTextReader(!showTextReader); }}
-              className={`absolute -bottom-24 right-4 w-20 h-20 md:w-24 md:h-24 p-5 rounded-full border-4 shadow-xl z-20 ${showTextReader ? 'bg-yellow-400 border-yellow-200 text-black' : 'bg-gray-800 border-gray-600 text-white'}`}
-              aria-label={showTextReader ? "Hide Text Reader" : "Show Text Reader"}
-            >
-              <IconText />
-            </button>
-          )}
-        </div>
-
-        {/* Bottom Controls */}
-        <div className="w-full space-y-4 px-2">
-
-          {!isActive && !isAnalyzing && playlist.length === 0 ? (
-            <button
-              onClick={(e) => { e.stopPropagation(); startSession(); }}
-              className="w-full h-80 rounded-[4rem] bg-yellow-400 text-black shadow-[0_0_60px_rgba(250,204,21,0.6)] active:scale-95 transition-transform flex flex-col items-center justify-center gap-6 border-[12px] border-yellow-200"
-              aria-label="Start Vision Assistant. Tap to grant camera permissions and begin."
-            >
-              <span className="text-6xl md:text-[7rem] font-black tracking-tighter leading-none" aria-hidden="true">START</span>
-              <span className="text-4xl md:text-6xl font-black bg-black text-yellow-400 px-8 py-6 md:px-12 md:py-8 rounded-[2rem] text-center border-4 border-black shadow-2xl" aria-hidden="true">Tap to Allow Camera</span>
-            </button>
-          ) : (
-            playlist.length === 0 && (
-              <button
-                onClick={(e) => { e.stopPropagation(); isAnalyzing ? undefined : handleStopWithAnalysis(); }}
-                disabled={isAnalyzing}
-                className={`w-full h-80 rounded-[4rem] text-white text-[5rem] font-black shadow-2xl active:scale-95 transition-transform flex flex-col items-center justify-center gap-6 border-[12px] ${isAnalyzing ? 'bg-gray-800 border-gray-600' : 'bg-red-600 border-red-400'}`}
-                aria-label={isAnalyzing ? "Processing analysis, please wait." : "Analyze current view. Double tap to stop and describe."}
-              >
-                {isAnalyzing ? (
-                  <div className="w-48 h-48 animate-spin" aria-hidden="true"><IconAnalyze /></div>
-                ) : <span aria-hidden="true">ANALYZE</span>}
-                <span className="text-3xl font-bold opacity-80 bg-black/40 px-6 py-2 rounded-xl" aria-hidden="true">{isAnalyzing ? 'Processing...' : 'Tap for Details'}</span>
-              </button>
-            )
-          )}
-
-          {/* Playback Controls (if Reader is active, show small controls at bottom instead of analyze button) */}
-          {playlist.length > 0 && showTextReader && (
-            <div className="w-full h-32 flex items-center justify-between gap-4 bg-gray-900 rounded-[2rem] p-4 border-4 border-gray-700">
-              <button onClick={(e) => { e.stopPropagation(); handleAudioControl('rewind'); }} className="h-full aspect-square bg-gray-800 rounded-2xl border-2 border-gray-600 flex items-center justify-center text-white" aria-label="Rewind">
-                <div className="w-10 h-10"><IconRewind /></div>
-              </button>
-              <button onClick={(e) => { e.stopPropagation(); handleAudioControl(isPlayingAudio ? 'pause' : 'play'); }} className="h-full flex-1 bg-yellow-400 rounded-2xl border-4 border-yellow-200 flex items-center justify-center text-black" aria-label={isPlayingAudio ? "Pause" : "Play"}>
-                <div className="w-12 h-12">{isPlayingAudio ? <IconPause /> : <IconPlay />}</div>
-              </button>
-              <button onClick={(e) => { e.stopPropagation(); handleAudioControl('forward'); }} className="h-full aspect-square bg-gray-800 rounded-2xl border-2 border-gray-600 flex items-center justify-center text-white" aria-label="Forward">
-                <div className="w-10 h-10"><IconForward /></div>
-              </button>
-            </div>
-          )}
-
-          {/* Quick Settings - Only show on start screen */}
-          {!isActive && !isAnalyzing && playlist.length === 0 && (
-            <div className="grid grid-cols-2 gap-4 w-full" role="group" aria-label="Settings">
-              <button
-                onClick={(e) => { e.stopPropagation(); setSpeechRate(r => r === 'normal' ? 'fast' : 'normal'); }}
-                className="py-6 md:py-8 bg-gray-900 rounded-3xl border-4 border-gray-700 text-2xl md:text-3xl font-bold active:bg-gray-800 shadow-lg text-white"
-                aria-label={`Speech Rate: ${speechRate}. Tap to toggle.`}
-              >
-                {speechRate === 'fast' ? '🐇 Fast' : '🐢 Norm'}
-              </button>
-              <button
-                onClick={(e) => { e.stopPropagation(); setVerbosity(v => v === 'brief' ? 'detailed' : 'brief'); }}
-                className="py-6 md:py-8 bg-gray-900 rounded-3xl border-4 border-gray-700 text-2xl md:text-3xl font-bold active:bg-gray-800 shadow-lg text-white"
-                aria-label={`Verbosity: ${verbosity}. Tap to toggle.`}
-              >
-                {verbosity === 'brief' ? '📝 Brief' : '📖 Detail'}
-              </button>
-              <button
-                onClick={toggleLanguage}
-                className="col-span-2 py-6 md:py-8 bg-gray-900 rounded-3xl border-4 border-gray-700 text-2xl md:text-4xl font-bold active:bg-gray-800 shadow-lg text-white flex items-center justify-between px-6 md:px-10"
-                aria-haspopup="dialog"
-                aria-label={`Language: ${language}. Tap to change.`}
-              >
-                <div className="flex items-center gap-4" aria-hidden="true">
-                  <span className="text-4xl md:text-5xl">{LANGUAGES.find(l => l.name === language)?.flag}</span>
-                  {language}
-                </div>
-                <div className="w-8 h-8 md:w-12 md:h-12 text-gray-400" aria-hidden="true"><IconChevronDown /></div>
-              </button>
-            </div>
-          )}
-        </div>
       </div>
+
       {/* Subscription Modal */}
       <SubscriptionModal
         isOpen={isSubModalOpen}
