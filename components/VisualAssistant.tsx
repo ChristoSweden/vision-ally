@@ -366,6 +366,7 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
   const [landmarks, setLandmarks] = useState<{ name: string, description: string }[]>([]);
   const [specialMode, setSpecialMode] = useState<'none' | 'social' | 'kitchen' | 'transit' | 'laundry' | 'appliance'>('none');
   const [isPathfinderMode, setIsPathfinderMode] = useState(false); // New Phase 6 Pathfinder Mode
+  const [showToolbox, setShowToolbox] = useState(false); // v1.1.0 Simplified UI Toolbox
 
   // Subscription Hook & State
   const { userTier, credits, isFeatureLocked, spendCredit } = useSubscription();
@@ -632,19 +633,21 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
         responseModalities: [Modality.AUDIO],
         tools: [{ functionDeclarations: [flashlightTool, switchCameraTool, privacyModeTool, getLocationTool, rememberFaceTool, monitorTrafficLightTool, triggerHapticTool, rememberLandmarkTool] }],
         systemInstruction: `
-            You are VisionAlly, a visual assistant for the blind.
+            You are VisionAlly, an immersive spatial companion for the blind.
             Current Perspective: ${facingMode === 'user' ? 'Looking at you' : 'Looking out into the world'}.
             
+            **VOICE-FIRST INTERACTION**: Treat the user's speech as priority. 
+            If they ask "What's this?" or "Where am I?", respond immediately and naturally.
+            Always maintain a "listening" posture—be ready to answer follow-up questions about the environment.
+            
             **IMMERSIVE PERSONA**: Never say "I see a picture" or "In this image." 
-            Talk as if you are standing next to the user in a 3D space. 
-            Use phrases like "The room opens up to your left," "There is a table about three steps ahead of you," or "The floor is clear directly in front of your feet."
+            Talk as if you are standing next to the user. 
+            Use spatial language like "The hallway extends 5 meters ahead" or "There is a door on your 3 o'clock."
             
             **CRITICAL SAFETY RULE**: ALWAYS ANALYZE FROM NEAR-TO-FAR (GROUND-UP). 
             Prioritize the GROUND and FOREGROUND (0-2 meters). 
-            Warn about low-lying obstacles (rugs, shoes, steps) before background objects.
+            Warn about hazards (cables, spills, steps) immediately.
 
-            **VISUAL Q&A**: If the user asks "Where am I?" or "Describe my surroundings," provide an immersive, spatial description of the environment.
-            
             **MODE**: ${findingTarget ? `OBJECT HUNTER ACTIVE. Target: "${findingTarget}"` : isCrossingMode ? "SAFE CROSSING MONITOR ACTIVE" : isPathfinderMode ? "PATHFINDER NAVIGATION ACTIVE" : specialMode !== 'none' ? `${specialMode.toUpperCase()} ASSISTANT ACTIVE` : "General Assistant"}
             
             **KNOWN PEOPLE**: ${faces.length > 0 ? faces.map(f => `${f.name} (${f.description})`).join(', ') : "None registered yet."}
@@ -1338,7 +1341,7 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
           ) : (
             <div className="flex flex-col items-center mx-2 truncate">
               <h1 className="text-3xl md:text-5xl font-extrabold text-yellow-400 tracking-wider drop-shadow-md" aria-label="Vision Ally">VisionAlly</h1>
-              <span className="text-[10px] font-mono text-zinc-500 mt-[-4px]">v1.0.0</span>
+              <span className="text-[10px] font-mono text-zinc-500 mt-[-4px]">v1.1.0 (Zen Edition)</span>
             </div>
           )}
 
@@ -1359,22 +1362,33 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
           </div>
         </div>
 
-        {/* --- New Controls: Grid(Edge), Location, Finder --- */}
-        <div className="w-full flex justify-between px-4 mt-2 mb-2 relative z-20">
-          <div className="flex flex-col gap-4">
-            {/* Edge Mode Toggle */}
+        {/* --- v1.1.0 Zen UI Implementation --- */}
+        <div className="w-full h-full flex flex-col justify-between items-center pointer-events-none relative z-20">
+
+          {/* Main Interaction Area (Invisible) */}
+          <div
+            className="flex-1 w-full pointer-events-auto"
+            onClick={() => {
+              if (isActive) stopSession();
+              else startSessionWithConfig();
+              triggerHaptic(50);
+            }}
+            aria-label={isActive ? "Stop Interaction" : "Start Interaction"}
+          />
+
+          {/* Bottom Control Bar */}
+          <div className="w-full pb-8 px-8 flex justify-between items-end gap-6 pointer-events-auto">
+            {/* Toolbox Toggle */}
             <button
-              onClick={(e) => { e.stopPropagation(); setIsEdgeMode(!isEdgeMode); triggerHaptic(30); }}
-              className={`w-16 h-16 p-4 rounded-full flex items-center justify-center shadow-lg border-4 ${isEdgeMode
-                ? 'bg-yellow-400 border-yellow-200 text-black'
-                : 'bg-gray-900/80 border-gray-600 text-white backdrop-blur-md'
-                }`}
-              aria-label={isEdgeMode ? "Disable Edge Detection" : "Enable Edge Detection"}
+              onClick={(e) => { e.stopPropagation(); setShowToolbox(true); triggerHaptic(30); }}
+              className="flex-1 h-28 bg-white/10 backdrop-blur-xl border-4 border-white/20 rounded-[2.5rem] flex items-center justify-center gap-4 active:bg-white/20 transition-all shadow-2xl"
+              aria-label="Open Tools and Specialized Modes"
             >
-              <IconGrid />
+              <div className="w-10 h-10"><IconGrid /></div>
+              <span className="text-3xl font-black text-white tracking-widest uppercase">Tools</span>
             </button>
 
-            {/* Location Button */}
+            {/* Quick Location (Primary Accessibility) */}
             <button
               onClick={async (e) => {
                 e.stopPropagation();
@@ -1382,181 +1396,131 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
                 if (isActive && sessionRef.current) {
                   sessionRef.current.sendRealtimeInput([{ text: "Where am I? Say my address and coordinates." }]);
                 } else {
-                  // If not active, start session with instruction to get location
-                  startSessionWithConfig("Where am I?"); // Abuse finding target param or just start
+                  startSessionWithConfig("Where am I?");
                 }
               }}
-              className="w-16 h-16 p-4 rounded-full bg-gray-900/80 flex items-center justify-center text-white backdrop-blur-md shadow-lg border-4 border-gray-600 active:bg-blue-600"
-              aria-label="Get Location"
+              className="w-28 h-28 bg-blue-600 border-4 border-blue-400 rounded-full flex items-center justify-center text-white active:bg-blue-500 shadow-2xl"
+              aria-label="Where am I?"
             >
               <IconMapPin />
             </button>
           </div>
-
-          <div className="flex flex-col gap-4">
-            {/* Object Hunter Toggle */}
-            <button
-              onClick={(e) => { e.stopPropagation(); setShowFinderModal(true); triggerHaptic(30); }}
-              className={`w-16 h-16 p-4 rounded-full flex items-center justify-center shadow-lg border-4 ${isFindingMode
-                ? 'bg-green-500 border-green-300 text-white animate-pulse'
-                : 'bg-gray-900/80 border-gray-600 text-white backdrop-blur-md'
-                }`}
-              aria-label="Find Object Mode"
-            >
-              <IconSearch />
-            </button>
-
-            {/* Document Mode Toggle */}
-            <button
-              onClick={(e) => { e.stopPropagation(); setIsDocumentMode(!isDocumentMode); triggerHaptic(30); }}
-              className={`w-16 h-16 p-4 rounded-full flex items-center justify-center shadow-lg border-4 ${isDocumentMode
-                ? 'bg-blue-500 border-blue-300 text-white'
-                : 'bg-gray-900/80 border-gray-600 text-white backdrop-blur-md'
-                }`}
-              aria-label="Document Scanner Mode"
-            >
-              <IconFileText />
-            </button>
-
-            {/* Barcode / Currency Quick ID */}
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                triggerHaptic(30);
-                if (isActive && sessionRef.current) {
-                  sessionRef.current.sendRealtimeInput([{ text: "Identify the object or currency in view precisely." }]);
-                }
-              }}
-              className="w-16 h-16 p-4 rounded-full bg-gray-900/80 flex items-center justify-center text-white backdrop-blur-md shadow-lg border-4 border-gray-600 active:bg-purple-600"
-              aria-label="Identify Item"
-            >
-              <IconBarcode />
-            </button>
-
-            {/* Safe Crossing Toggle */}
-            <button
-              onClick={(e) => { e.stopPropagation(); setIsCrossingMode(!isCrossingMode); triggerHaptic(30); }}
-              className={`w-16 h-16 p-4 rounded-full flex items-center justify-center shadow-lg border-4 ${isCrossingMode
-                ? 'bg-red-500 border-red-300 text-white animate-pulse'
-                : 'bg-gray-900/80 border-gray-600 text-white backdrop-blur-md'
-                }`}
-              aria-label="Safe Crossing Mode"
-            >
-              <IconTrafficLight />
-            </button>
-
-            {/* Pathfinder Navigation Toggle */}
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                if (checkFeatureAccess('pathfinder', 'Pathfinder Navigation')) {
-                  const newMode = !isPathfinderMode;
-                  setIsPathfinderMode(newMode);
-                  if (newMode) spendCredit();
-                  triggerHaptic(30);
-                }
-              }}
-              className={`w-16 h-16 p-4 rounded-full flex items-center justify-center shadow-lg border-4 ${isPathfinderMode
-                ? 'bg-blue-600 border-blue-400 text-white shadow-[0_0_20px_rgba(37,99,235,0.5)]'
-                : 'bg-gray-900/80 border-gray-600 text-white backdrop-blur-md'
-                }`}
-              aria-label="Pathfinder Navigation Mode"
-            >
-              <IconPathfinder />
-            </button>
-
-            {/* Expiry / Medication Zoom Toggle */}
-            <button
-              onClick={(e) => { e.stopPropagation(); setIsZoomMode(!isZoomMode); triggerHaptic(30); }}
-              className={`w-16 h-16 p-4 rounded-full flex items-center justify-center shadow-lg border-4 ${isZoomMode
-                ? 'bg-orange-500 border-orange-300 text-white'
-                : 'bg-gray-900/80 border-gray-600 text-white backdrop-blur-md'
-                }`}
-              aria-label="Expiry Zoom Mode"
-            >
-              <IconZoom />
-            </button>
-          </div>
-
-          {/* Phase 4 Lifestyle Column */}
-          <div className="flex flex-col gap-4">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                if (checkFeatureAccess('social', 'Social Intelligence')) {
-                  const newMode = specialMode === 'social' ? 'none' : 'social';
-                  setSpecialMode(newMode);
-                  if (newMode === 'social') spendCredit();
-                  triggerHaptic(30);
-                }
-              }}
-              className={`w-16 h-16 p-4 rounded-full flex items-center justify-center shadow-lg border-4 ${specialMode === 'social' ? 'bg-pink-500 border-pink-300' : 'bg-gray-900/80 border-gray-600'}`}
-              aria-label="Social Intelligence Mode"
-            >
-              <IconSocial />
-            </button>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                if (checkFeatureAccess('kitchen', 'Kitchen Safety')) {
-                  const newMode = specialMode === 'kitchen' ? 'none' : 'kitchen';
-                  setSpecialMode(newMode);
-                  if (newMode === 'kitchen') spendCredit();
-                  triggerHaptic(30);
-                }
-              }}
-              className={`w-16 h-16 p-4 rounded-full flex items-center justify-center shadow-lg border-4 ${specialMode === 'kitchen' ? 'bg-red-500 border-red-300' : 'bg-gray-900/80 border-gray-600'}`}
-              aria-label="Kitchen Safety Mode"
-            >
-              <IconKitchen />
-            </button>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                if (checkFeatureAccess('transit', 'Transit Scout')) {
-                  const newMode = specialMode === 'transit' ? 'none' : 'transit';
-                  setSpecialMode(newMode);
-                  if (newMode === 'transit') spendCredit();
-                  triggerHaptic(30);
-                }
-              }}
-              className={`w-16 h-16 p-4 rounded-full flex items-center justify-center shadow-lg border-4 ${specialMode === 'transit' ? 'bg-indigo-500 border-indigo-300' : 'bg-gray-900/80 border-gray-600'}`}
-              aria-label="Transit Scout Mode"
-            >
-              <IconTransit />
-            </button>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                if (checkFeatureAccess('laundry', 'Laundry Care')) {
-                  const newMode = specialMode === 'laundry' ? 'none' : 'laundry';
-                  setSpecialMode(newMode);
-                  if (newMode === 'laundry') spendCredit();
-                  triggerHaptic(30);
-                }
-              }}
-              className={`w-16 h-16 p-4 rounded-full flex items-center justify-center shadow-lg border-4 ${specialMode === 'laundry' ? 'bg-cyan-500 border-cyan-300' : 'bg-gray-900/80 border-gray-600'}`}
-              aria-label="Laundry Care Mode"
-            >
-              <IconLaundry />
-            </button>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                if (checkFeatureAccess('appliance', 'Appliance Eye')) {
-                  const newMode = specialMode === 'appliance' ? 'none' : 'appliance';
-                  setSpecialMode(newMode);
-                  if (newMode === 'appliance') spendCredit();
-                  triggerHaptic(30);
-                }
-              }}
-              className={`w-16 h-16 p-4 rounded-full flex items-center justify-center shadow-lg border-4 ${specialMode === 'appliance' ? 'bg-emerald-500 border-emerald-300' : 'bg-gray-900/80 border-gray-600'}`}
-              aria-label="Appliance Eye Mode"
-            >
-              <IconAppliance />
-            </button>
-          </div>
         </div>
+
+
+        {/* --- v1.1.0 Toolbox Drawer --- */}
+        {showToolbox && (
+          <div className="absolute inset-0 z-[100] bg-black/95 backdrop-blur-2xl flex flex-col p-8 animate-in fade-in slide-in-from-bottom duration-300">
+            <div className="flex justify-between items-center mb-12">
+              <h2 className="text-5xl font-black text-white">Tools</h2>
+              <button
+                onClick={() => setShowToolbox(false)}
+                className="w-20 h-20 bg-zinc-800 rounded-full flex items-center justify-center text-white border-4 border-zinc-600"
+              >
+                <IconExit />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 overflow-y-auto pb-12">
+              {/* Pathfinder Navigation */}
+              <button
+                onClick={() => {
+                  if (checkFeatureAccess('pathfinder', 'Pathfinder Navigation')) {
+                    setIsPathfinderMode(!isPathfinderMode);
+                    setShowToolbox(false);
+                    triggerHaptic(30);
+                  }
+                }}
+                className={`h-32 rounded-[2rem] border-4 flex items-center px-8 gap-6 transition-all ${isPathfinderMode ? 'bg-blue-600 border-blue-300' : 'bg-zinc-900 border-zinc-700'}`}
+              >
+                <div className="w-12 h-12 text-white"><IconPathfinder /></div>
+                <div className="text-left">
+                  <div className="text-3xl font-bold text-white">Pathfinder</div>
+                  <div className="text-lg text-zinc-400">Navigate complex spaces</div>
+                </div>
+              </button>
+
+              {/* Object Hunter */}
+              <button
+                onClick={() => { setShowFinderModal(true); setShowToolbox(false); triggerHaptic(30); }}
+                className={`h-32 rounded-[2rem] border-4 flex items-center px-8 gap-6 transition-all ${isFindingMode ? 'bg-green-600 border-green-300' : 'bg-zinc-900 border-zinc-700'}`}
+              >
+                <div className="w-12 h-12 text-white"><IconSearch /></div>
+                <div className="text-left">
+                  <div className="text-3xl font-bold text-white">Object Hunter</div>
+                  <div className="text-lg text-zinc-400">Find keys, wallet, etc.</div>
+                </div>
+              </button>
+
+              {/* Safe Crossing */}
+              <button
+                onClick={() => { setIsCrossingMode(!isCrossingMode); setShowToolbox(false); triggerHaptic(30); }}
+                className={`h-32 rounded-[2rem] border-4 flex items-center px-8 gap-6 transition-all ${isCrossingMode ? 'bg-red-600 border-red-300' : 'bg-zinc-900 border-zinc-700'}`}
+              >
+                <div className="w-12 h-12 text-white"><IconTrafficLight /></div>
+                <div className="text-left">
+                  <div className="text-3xl font-bold text-white">Traffic Lights</div>
+                  <div className="text-lg text-zinc-400">Safe street crossing</div>
+                </div>
+              </button>
+
+              {/* Document Scanner */}
+              <button
+                onClick={() => { setIsDocumentMode(!isDocumentMode); setShowToolbox(false); triggerHaptic(30); }}
+                className={`h-32 rounded-[2rem] border-4 flex items-center px-8 gap-6 transition-all ${isDocumentMode ? 'bg-indigo-600 border-indigo-300' : 'bg-zinc-900 border-zinc-700'}`}
+              >
+                <div className="w-12 h-12 text-white"><IconFileText /></div>
+                <div className="text-left">
+                  <div className="text-3xl font-bold text-white">Document Scanner</div>
+                  <div className="text-lg text-zinc-400">Read books and mail</div>
+                </div>
+              </button>
+
+              {/* Edge Mode */}
+              <button
+                onClick={() => { setIsEdgeMode(!isEdgeMode); setShowToolbox(false); triggerHaptic(30); }}
+                className={`h-32 rounded-[2rem] border-4 flex items-center px-8 gap-6 transition-all ${isEdgeMode ? 'bg-yellow-500 border-yellow-200 text-black' : 'bg-zinc-900 border-zinc-700 text-white'}`}
+              >
+                <div className="w-12 h-12"><IconGrid /></div>
+                <div className="text-left">
+                  <div className="text-3xl font-bold">Edge Detection</div>
+                  <div className="text-lg opacity-70">Enhanced contrast for navigation</div>
+                </div>
+              </button>
+
+              {/* Lifestyle Modes Section */}
+              <div className="mt-8 mb-4 text-zinc-500 uppercase font-black tracking-widest text-xl">Lifestyle Intelligence</div>
+
+              {/* Social Mode */}
+              <button
+                onClick={() => {
+                  if (checkFeatureAccess('social', 'Social Intelligence')) {
+                    setSpecialMode(specialMode === 'social' ? 'none' : 'social');
+                    setShowToolbox(false);
+                  }
+                }}
+                className={`h-32 rounded-[2rem] border-4 flex items-center px-8 gap-6 ${specialMode === 'social' ? 'bg-pink-600 border-pink-300' : 'bg-zinc-900 border-zinc-700'}`}
+              >
+                <div className="w-12 h-12 text-white"><IconSocial /></div>
+                <div className="text-3xl font-bold text-white">Social Mode</div>
+              </button>
+
+              {/* Kitchen Mode */}
+              <button
+                onClick={() => {
+                  if (checkFeatureAccess('kitchen', 'Kitchen Safety')) {
+                    setSpecialMode(specialMode === 'kitchen' ? 'none' : 'kitchen');
+                    setShowToolbox(false);
+                  }
+                }}
+                className={`h-32 rounded-[2rem] border-4 flex items-center px-8 gap-6 ${specialMode === 'kitchen' ? 'bg-orange-600 border-orange-300' : 'bg-zinc-900 border-zinc-700'}`}
+              >
+                <div className="w-12 h-12 text-white"><IconKitchen /></div>
+                <div className="text-3xl font-bold text-white">Kitchen Assistant</div>
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* --- Finding Mode Modal --- */}
         {showFinderModal && (
