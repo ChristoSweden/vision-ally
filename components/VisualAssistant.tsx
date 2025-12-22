@@ -1336,7 +1336,10 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
               <IconExit />
             </button>
           ) : (
-            <h1 className="text-3xl md:text-5xl font-extrabold text-yellow-400 tracking-wider drop-shadow-md truncate mx-2" aria-label="Vision Ally">VisionAlly</h1>
+            <div className="flex flex-col items-center mx-2 truncate">
+              <h1 className="text-3xl md:text-5xl font-extrabold text-yellow-400 tracking-wider drop-shadow-md" aria-label="Vision Ally">VisionAlly</h1>
+              <span className="text-[10px] font-mono text-zinc-500 mt-[-4px]">v1.0.0</span>
+            </div>
           )}
 
           <div className="flex flex-col items-center">
