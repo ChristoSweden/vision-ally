@@ -36,6 +36,13 @@ const IconEyeOff = () => (
   </svg>
 );
 
+const IconCamera = () => (
+  <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-full h-full">
+    <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" />
+    <circle cx="12" cy="13" r="3" />
+  </svg>
+);
+
 const IconPlay = () => (
   <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor" stroke="none" className="w-full h-full">
     <polygon points="5 3 19 12 5 21 5 3" />
@@ -48,6 +55,7 @@ const IconPause = () => (
     <rect x="14" y="4" width="4" height="16" />
   </svg>
 );
+
 
 const IconRewind = () => (
   <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor" stroke="none" className="w-full h-full">
@@ -1427,7 +1435,7 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
           ) : (
             <div className="flex flex-col items-center mx-2 truncate">
               <h1 className="text-3xl md:text-5xl font-extrabold text-yellow-400 tracking-wider drop-shadow-md" aria-label="Vision Ally">VisionAlly</h1>
-              <span className="text-[10px] font-mono text-zinc-500 mt-[-4px]">v1.2.0 (Sonic Edition)</span>
+              <span className="text-[10px] font-mono text-zinc-500 mt-[-4px]">v1.2.1 (Nano Banana)</span>
             </div>
           )}
 
@@ -1510,7 +1518,7 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
                 {(!isActive && !isAnalyzing) ? (
                   <div className="flex flex-col items-center gap-6 animate-pulse">
                     <div className="w-48 h-48 rounded-full border-[12px] border-yellow-400 flex items-center justify-center text-yellow-400">
-                      <div className="w-24 h-24"><IconPlay /></div>
+                      <div className="w-24 h-24"><IconCamera /></div>
                     </div>
                     <span className="text-5xl font-black text-white text-center">TAP TO START</span>
                   </div>
@@ -1560,7 +1568,7 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
               className={`flex-1 h-28 rounded-[2.5rem] flex items-center justify-center gap-4 border-4 transition-all shadow-2xl ${isActive ? 'bg-yellow-400 border-yellow-200 text-black' : 'bg-zinc-800 border-zinc-600 text-white animate-pulse'}`}
               aria-label={isActive ? "Ask Vision Ally" : "Start Vision Assistant"}
             >
-              <div className="w-10 h-10">{isActive ? <IconMic /> : <IconPlay />}</div>
+              <div className="w-10 h-10">{isActive ? <IconMic /> : <IconCamera />}</div>
               <span className="text-3xl font-black uppercase tracking-tight">{isActive ? "Ask Ally" : "Start"}</span>
             </button>
 
