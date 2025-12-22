@@ -26,7 +26,7 @@ export function createAudioBlob(data: Float32Array): Blob {
     let s = Math.max(-1, Math.min(1, data[i]));
     int16[i] = s < 0 ? s * 32768 : s * 32767;
   }
-  
+
   // Encode to base64 manually to avoid external deps
   let binary = '';
   const bytes = new Uint8Array(int16.buffer);
@@ -34,7 +34,7 @@ export function createAudioBlob(data: Float32Array): Blob {
   for (let i = 0; i < len; i++) {
     binary += String.fromCharCode(bytes[i]);
   }
-  
+
   return {
     data: btoa(binary),
     mimeType: 'audio/pcm;rate=16000',
@@ -125,52 +125,61 @@ export function blobToBase64(blob: globalThis.Blob): Promise<string> {
 /**
  * Plays UI sound effects (Earcons) for accessibility feedback.
  */
-export function playEarcon(type: 'on' | 'off' | 'error' | 'success', ctx: AudioContext) {
-    if (ctx.state === 'closed') return;
-    
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    
-    const now = ctx.currentTime;
-    
-    if (type === 'on') {
-        // Rising tone (Success/Start)
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(440, now);
-        osc.frequency.exponentialRampToValueAtTime(880, now + 0.1);
-        gain.gain.setValueAtTime(0.1, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
-        osc.start(now);
-        osc.stop(now + 0.1);
-    } else if (type === 'off') {
-        // Falling tone (Stop)
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(880, now);
-        osc.frequency.exponentialRampToValueAtTime(440, now + 0.1);
-        gain.gain.setValueAtTime(0.1, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
-        osc.start(now);
-        osc.stop(now + 0.1);
-    } else if (type === 'error') {
-        // Low buzz (Error)
-        osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(150, now);
-        gain.gain.setValueAtTime(0.2, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
-        osc.start(now);
-        osc.stop(now + 0.3);
-    } else if (type === 'success') {
-        // High Ping (Found item)
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(1200, now);
-        gain.gain.setValueAtTime(0.1, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
-        osc.start(now);
-        osc.stop(now + 0.2);
-    }
+export function playEarcon(type: 'on' | 'off' | 'error' | 'success' | 'sonar', ctx: AudioContext) {
+  if (ctx.state === 'closed') return;
+
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+
+  const now = ctx.currentTime;
+
+  if (type === 'on') {
+    // Rising tone (Success/Start)
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(440, now);
+    osc.frequency.exponentialRampToValueAtTime(880, now + 0.1);
+    gain.gain.setValueAtTime(0.1, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+    osc.start(now);
+    osc.stop(now + 0.1);
+  } else if (type === 'off') {
+    // Falling tone (Stop)
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(880, now);
+    osc.frequency.exponentialRampToValueAtTime(440, now + 0.1);
+    gain.gain.setValueAtTime(0.1, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+    osc.start(now);
+    osc.stop(now + 0.1);
+  } else if (type === 'error') {
+    // Low buzz (Error)
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(150, now);
+    gain.gain.setValueAtTime(0.2, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+    osc.start(now);
+    osc.stop(now + 0.3);
+  } else if (type === 'success') {
+    // High Ping (Found item)
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(1200, now);
+    gain.gain.setValueAtTime(0.1, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+    osc.start(now);
+    osc.stop(now + 0.2);
+  } else if (type === 'sonar') {
+    // Ping (Sonar/Geiger)
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(600, now);
+    osc.frequency.exponentialRampToValueAtTime(1200, now + 0.05); // Chirp up
+    gain.gain.setValueAtTime(0.1, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+    osc.start(now);
+    osc.stop(now + 0.1);
+  }
 }
 
 /**
@@ -179,32 +188,32 @@ export function playEarcon(type: 'on' | 'off' | 'error' | 'success', ctx: AudioC
  * Returns the Input Node to connect sources to.
  */
 export function setupVoiceProcessingChain(ctx: AudioContext): AudioNode {
-    // 1. High Pass Filter (Remove low rumble/noise < 100Hz)
-    const highPass = ctx.createBiquadFilter();
-    highPass.type = 'highpass';
-    highPass.frequency.value = 80;
-    highPass.Q.value = 0.7;
-  
-    // 2. Presence Filter (Boost ~3kHz for speech intelligibility)
-    const presence = ctx.createBiquadFilter();
-    presence.type = 'peaking';
-    presence.frequency.value = 3000;
-    presence.Q.value = 1.0;
-    presence.gain.value = 3.0; // +3dB boost
-  
-    // 3. Dynamics Compressor (Normalize volume for consistency)
-    const compressor = ctx.createDynamicsCompressor();
-    compressor.threshold.value = -20;
-    compressor.knee.value = 30;
-    compressor.ratio.value = 12;
-    compressor.attack.value = 0.003;
-    compressor.release.value = 0.25;
-  
-    // Connect Chain
-    highPass.connect(presence);
-    presence.connect(compressor);
-    compressor.connect(ctx.destination);
-  
-    // Return the entry point
-    return highPass;
+  // 1. High Pass Filter (Remove low rumble/noise < 100Hz)
+  const highPass = ctx.createBiquadFilter();
+  highPass.type = 'highpass';
+  highPass.frequency.value = 80;
+  highPass.Q.value = 0.7;
+
+  // 2. Presence Filter (Boost ~3kHz for speech intelligibility)
+  const presence = ctx.createBiquadFilter();
+  presence.type = 'peaking';
+  presence.frequency.value = 3000;
+  presence.Q.value = 1.0;
+  presence.gain.value = 3.0; // +3dB boost
+
+  // 3. Dynamics Compressor (Normalize volume for consistency)
+  const compressor = ctx.createDynamicsCompressor();
+  compressor.threshold.value = -20;
+  compressor.knee.value = 30;
+  compressor.ratio.value = 12;
+  compressor.attack.value = 0.003;
+  compressor.release.value = 0.25;
+
+  // Connect Chain
+  highPass.connect(presence);
+  presence.connect(compressor);
+  compressor.connect(ctx.destination);
+
+  // Return the entry point
+  return highPass;
 }
