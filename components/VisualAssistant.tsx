@@ -152,6 +152,24 @@ const IconFileText = () => (
   </svg>
 );
 
+const IconTrafficLight = () => (
+  <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-full h-full">
+    <rect width="6" height="16" x="9" y="4" rx="3" />
+    <circle cx="12" cy="7" r="1.5" fill="currentColor" />
+    <circle cx="12" cy="12" r="1.5" />
+    <circle cx="12" cy="17" r="1.5" />
+  </svg>
+);
+
+const IconZoom = () => (
+  <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-full h-full">
+    <circle cx="11" cy="11" r="8" />
+    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+    <line x1="11" y1="8" x2="11" y2="14" />
+    <line x1="8" y1="11" x2="14" y2="11" />
+  </svg>
+);
+
 
 // --- Tool Declarations ---
 
@@ -206,6 +224,30 @@ const rememberFaceTool: FunctionDeclaration = {
   },
 };
 
+const monitorTrafficLightTool: FunctionDeclaration = {
+  name: 'monitorTrafficLight',
+  description: 'Enable or disable haptic traffic light monitoring for safe crossing. Use when user asks to "Watch the light" or "Help me cross".',
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      active: { type: Type.BOOLEAN, description: 'True to start monitoring, false to stop.' },
+    },
+    required: ['active'],
+  },
+};
+
+const triggerHapticTool: FunctionDeclaration = {
+  name: 'triggerHaptic',
+  description: 'Vibrate the device with a specific pattern. Use for "Go" signals, obstacle warnings, or radar feedback.',
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      pattern: { type: Type.STRING, enum: ['pulse', 'double', 'long', 'rapid'], description: 'The vibration pattern.' },
+    },
+    required: ['pattern'],
+  },
+};
+
 const getLocationTool: FunctionDeclaration = {
   name: 'getLocation',
   description: 'Get the users current GPS coordinates and address to answer "Where am I?" questions.',
@@ -251,6 +293,8 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
   const [targetObject, setTargetObject] = useState<string>('');
   const [showFinderModal, setShowFinderModal] = useState(false);
   const [isDocumentMode, setIsDocumentMode] = useState(false); // New Phase 2 Mode
+  const [isCrossingMode, setIsCrossingMode] = useState(false); // New Phase 3 Mode
+  const [isZoomMode, setIsZoomMode] = useState(false); // New Phase 3 Mode (Expiry/Medication)
 
   // Media Refs
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -506,12 +550,12 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
 
       const config = {
         responseModalities: [Modality.AUDIO],
-        tools: [{ functionDeclarations: [flashlightTool, switchCameraTool, privacyModeTool, getLocationTool, rememberFaceTool] }],
+        tools: [{ functionDeclarations: [flashlightTool, switchCameraTool, privacyModeTool, getLocationTool, rememberFaceTool, monitorTrafficLightTool, triggerHapticTool] }],
         systemInstruction: `
             You are VisionAlly, a visual assistant for the blind.
             Current Camera View: ${facingMode === 'user' ? 'Front-facing (User Face)' : 'World-facing (Environment)'}.
             
-            **MODE**: ${findingTarget ? `OBJECT HUNTER ACTIVE. Target: "${findingTarget}"` : "General Assistant"}
+            **MODE**: ${findingTarget ? `OBJECT HUNTER ACTIVE. Target: "${findingTarget}"` : isCrossingMode ? "SAFE CROSSING MONITOR ACTIVE" : "General Assistant"}
             
             **KNOWN PEOPLE**: ${faces.length > 0 ? faces.map(f => `${f.name} (${f.description})`).join(', ') : "None registered yet."}
             
@@ -527,11 +571,22 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
             2. Give "Hot/Cold" feedback based on visibility and proximity.
             3. "Cold" = Not visible. "Warmer" = Partially visible/far. "HOT" = Clearly visible/close.
             4. If found, say "FOUND IT" and give precise clock-face directions (e.g., "At 2 o'clock").
+            ` : isCrossingMode ? `
+            **PRIORITY TASK (SAFE CROSSING):**
+            1. Monitor the pedestrian traffic signal.
+            2. Describe changes (e.g., "Hand is flashing," "Person is green").
+            3. Warn of oncoming cars if possible.
+            4. Focus 100% on safety and the signal.
             ` : isDocumentMode ? `
             **PRIORITY TASK (DOCUMENT SCANNER):**
             1. Help user align the page (e.g., "Move up", "Rotate clockwise").
             2. Once centered and clear, say "FRAME LOCKED" and read the text VERBATIM from top to bottom.
             3. Ignore background objects. Focus on the paper.
+            ` : isZoomMode ? `
+            **PRIORITY TASK (EXPIRY/MEDICATION):**
+            1. Scan for expiry dates or medicine names.
+            2. Read fine print precisely.
+            3. Alert if a date is in the past.
             ` : `
             **TASKS:**
             1. **Active Framing:** Guide user to center text/objects.
@@ -539,10 +594,12 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
             3. **Text Reading:** READ ALL TEXT VERBATIM.
             4. **Safety:** Warn of obstacles <1m away. Say "STOP" if dangerous.
             5. **Finding:** Scan for user requested items.
-            6. **Self-Description:** If in front camera, describe the user's appearance/expression if asked.
-            7. **Location:** If user asks "Where am I?", use the 'getLocation' tool.
-            8. **Identify:** If user asks "What is this?", identify barcodes, currency, or objects precisely.
-            9. **Memorizing:** If user says "This is [Name]", use 'rememberFace' tool.
+            6. **Fashion:** If asked about clothes, describe colors and patterns precisely.
+            7. **Radar:** Alert user of object proximity (AI will calculate haptic pulses).
+            8. **Location:** If user asks "Where am I?", use the 'getLocation' tool.
+            9. **Identify:** If user asks "What is this?", identify barcodes, currency, or objects precisely.
+            10. **Memorizing:** If user says "This is [Name]", use 'rememberFace' tool.
+            11. **Crossing:** If user asks for help crossing, use 'monitorTrafficLight' tool.
             `}
 
             **Tools:** 
@@ -550,6 +607,7 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
              - Use 'switchCamera' if user asks to flip view or see themselves.
              - Use 'setPrivacyMode' if user asks to turn off screen or save battery.
              - Use 'getLocation' ONLY if user explicitly asks for location.
+             - Use 'monitorTrafficLight' for street crossing safety.
 
             **INTERACTION:**
             - Be warm but efficient.
@@ -731,14 +789,14 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
             output[outIdx + 3] = 255;
           }
         }
-        // Put edge data back for display (wait, we also need to send valid IMG to Gemini)
-        // Actually, for Gemini, we probably want the REAL image, but for the user we want Edges.
-        // But if we draw to canvas, we send that to Gemini. 
-        // Gemini is good at understanding edges too. Let's send edges if mode is on, 
-        // helpful for it to understand structure, but maybe worse for color.
-        // Let's only show edges to user on a separate overlay or just modify this ctx.
-        // To keep it simple: We modify the canvas. 
         ctx.putImageData(new ImageData(output, width, height), 0, 0);
+      } else if (isZoomMode) {
+        // Apply Digital Zoom (Center Crop)
+        const zoomWidth = videoRef.current.videoWidth * 0.4;
+        const zoomHeight = videoRef.current.videoHeight * 0.4;
+        const zoomX = (videoRef.current.videoWidth - zoomWidth) / 2;
+        const zoomY = (videoRef.current.videoHeight - zoomHeight) / 2;
+        ctx.drawImage(videoRef.current, zoomX, zoomY, zoomWidth, zoomHeight, 0, 0, canvasRef.current.width, canvasRef.current.height);
       } else {
         ctx.drawImage(videoRef.current, 0, 0, canvasRef.current.width, canvasRef.current.height);
       }
@@ -826,16 +884,20 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
           playSystemSound('success');
         } else if (fc.name === 'rememberFace') {
           const name = (fc.args as any).name;
-          // We ask the model itself to provide a description in the next turn or just assume it knows.
-          // To be robust, we'll tell the session to describe this person.
-          // However, tool response is the best place to confirm. 
-          // We'll just confirm "Memorizing [name]..." and the model will follow up.
-          result = `ok, memorizing ${name}. Please provide a 5-word visual description of this person to store.`;
-          // Since we can't easily wait for the model's next token here, 
-          // we'll listen for the description in the next modelTurn or just save a generic one for now.
-          // BETTER: We'll generate a description using a one-shot call if possible, 
-          // but keeping it simple for Live API:
+          result = `ok, memorizing ${name}. Please provide a 5-word visual description.`;
           saveFace(name, "Person currently in view");
+        } else if (fc.name === 'monitorTrafficLight') {
+          const active = (fc.args as any).active;
+          setIsCrossingMode(active);
+          result = active ? "ok, monitoring traffic signal." : "ok, stopped crossing monitor.";
+          triggerHaptic(active ? [50, 100, 50] : [50, 50]);
+        } else if (fc.name === 'triggerHaptic') {
+          const pattern = (fc.args as any).pattern;
+          if (pattern === 'pulse') triggerHaptic(100);
+          else if (pattern === 'double') triggerHaptic([50, 50, 50]);
+          else if (pattern === 'long') triggerHaptic(300);
+          else if (pattern === 'rapid') triggerHaptic([50, 30, 50, 30, 50]);
+          result = "vibrated";
         }
 
         sessionPromise.then(session => {
@@ -1229,6 +1291,30 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
               aria-label="Identify Item"
             >
               <IconBarcode />
+            </button>
+
+            {/* Safe Crossing Toggle */}
+            <button
+              onClick={(e) => { e.stopPropagation(); setIsCrossingMode(!isCrossingMode); triggerHaptic(30); }}
+              className={`w-16 h-16 p-4 rounded-full flex items-center justify-center shadow-lg border-4 ${isCrossingMode
+                ? 'bg-red-500 border-red-300 text-white animate-pulse'
+                : 'bg-gray-900/80 border-gray-600 text-white backdrop-blur-md'
+                }`}
+              aria-label="Safe Crossing Mode"
+            >
+              <IconTrafficLight />
+            </button>
+
+            {/* Expiry / Medication Zoom Toggle */}
+            <button
+              onClick={(e) => { e.stopPropagation(); setIsZoomMode(!isZoomMode); triggerHaptic(30); }}
+              className={`w-16 h-16 p-4 rounded-full flex items-center justify-center shadow-lg border-4 ${isZoomMode
+                ? 'bg-orange-500 border-orange-300 text-white'
+                : 'bg-gray-900/80 border-gray-600 text-white backdrop-blur-md'
+                }`}
+              aria-label="Expiry Zoom Mode"
+            >
+              <IconZoom />
             </button>
           </div>
         </div>
