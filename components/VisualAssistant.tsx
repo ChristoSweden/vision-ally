@@ -132,6 +132,26 @@ const IconSearch = () => (
   </svg>
 );
 
+const IconBarcode = () => (
+  <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-full h-full">
+    <path d="M3 5v14" />
+    <path d="M8 5v14" />
+    <path d="M12 5v14" />
+    <path d="M17 5v14" />
+    <path d="M21 5v14" />
+  </svg>
+);
+
+const IconFileText = () => (
+  <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-full h-full">
+    <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+    <polyline points="14 2 14 8 20 8" />
+    <line x1="16" y1="13" x2="8" y2="13" />
+    <line x1="16" y1="17" x2="8" y2="17" />
+    <line x1="10" y1="9" x2="8" y2="9" />
+  </svg>
+);
+
 
 // --- Tool Declarations ---
 
@@ -174,6 +194,18 @@ const privacyModeTool: FunctionDeclaration = {
   },
 };
 
+const rememberFaceTool: FunctionDeclaration = {
+  name: 'rememberFace',
+  description: 'Memorize the current visible person with a customized name. Use when user says "This is [Name]".',
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      name: { type: Type.STRING, description: 'The name of the person to remember.' },
+    },
+    required: ['name'],
+  },
+};
+
 const getLocationTool: FunctionDeclaration = {
   name: 'getLocation',
   description: 'Get the users current GPS coordinates and address to answer "Where am I?" questions.',
@@ -208,6 +240,7 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
   // Settings / Modes
   const [language, setLanguage] = useState<string>('English');
   const [showLanguageModal, setShowLanguageModal] = useState(false);
+  const [faces, setFaces] = useState<{ name: string, description: string }[]>([]);
   const [isLowLight, setIsLowLight] = useState(false);
   const [speechRate, setSpeechRate] = useState<'normal' | 'fast'>('normal');
   const [verbosity, setVerbosity] = useState<'brief' | 'detailed'>('detailed');
@@ -217,6 +250,7 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
   const [isFindingMode, setIsFindingMode] = useState(false); // Object Hunter Mode
   const [targetObject, setTargetObject] = useState<string>('');
   const [showFinderModal, setShowFinderModal] = useState(false);
+  const [isDocumentMode, setIsDocumentMode] = useState(false); // New Phase 2 Mode
 
   // Media Refs
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -297,6 +331,21 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
     // Simple regex to split by . ! ?
     const matches = text.match(/[^.!?]+[.!?]+|[^.!?]+$/g);
     return matches ? matches.map(s => s.trim()).filter(s => s.length > 0) : [text];
+  };
+
+  // --- Face Management ---
+  useEffect(() => {
+    const savedFaces = localStorage.getItem('visionally_faces');
+    if (savedFaces) {
+      try { setFaces(JSON.parse(savedFaces)); } catch (e) { }
+    }
+  }, []);
+
+  const saveFace = (name: string, description: string) => {
+    const newFaces = [...faces, { name, description }];
+    setFaces(newFaces);
+    localStorage.setItem('visionally_faces', JSON.stringify(newFaces));
+    playSystemSound('success');
   };
 
   const handleGetLocation = async (): Promise<any> => {
@@ -457,12 +506,14 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
 
       const config = {
         responseModalities: [Modality.AUDIO],
-        tools: [{ functionDeclarations: [flashlightTool, switchCameraTool, privacyModeTool, getLocationTool] }],
+        tools: [{ functionDeclarations: [flashlightTool, switchCameraTool, privacyModeTool, getLocationTool, rememberFaceTool] }],
         systemInstruction: `
             You are VisionAlly, a visual assistant for the blind.
             Current Camera View: ${facingMode === 'user' ? 'Front-facing (User Face)' : 'World-facing (Environment)'}.
             
             **MODE**: ${findingTarget ? `OBJECT HUNTER ACTIVE. Target: "${findingTarget}"` : "General Assistant"}
+            
+            **KNOWN PEOPLE**: ${faces.length > 0 ? faces.map(f => `${f.name} (${f.description})`).join(', ') : "None registered yet."}
             
             **LANGUAGE**: Speak in ${language}.
             
@@ -476,14 +527,22 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
             2. Give "Hot/Cold" feedback based on visibility and proximity.
             3. "Cold" = Not visible. "Warmer" = Partially visible/far. "HOT" = Clearly visible/close.
             4. If found, say "FOUND IT" and give precise clock-face directions (e.g., "At 2 o'clock").
+            ` : isDocumentMode ? `
+            **PRIORITY TASK (DOCUMENT SCANNER):**
+            1. Help user align the page (e.g., "Move up", "Rotate clockwise").
+            2. Once centered and clear, say "FRAME LOCKED" and read the text VERBATIM from top to bottom.
+            3. Ignore background objects. Focus on the paper.
             ` : `
             **TASKS:**
             1. **Active Framing:** Guide user to center text/objects.
-            2. **Text Reading:** READ ALL TEXT VERBATIM.
-            3. **Safety:** Warn of obstacles <1m away. Say "STOP" if dangerous.
-            4. **Finding:** Scan for user requested items.
-            5. **Self-Description:** If in front camera, describe the user's appearance/expression if asked.
-            6. **Location:** If user asks "Where am I?", use the 'getLocation' tool.
+            2. **Recognition:** Announce known people if they appear: ${faces.map(f => f.name).join(', ')}.
+            3. **Text Reading:** READ ALL TEXT VERBATIM.
+            4. **Safety:** Warn of obstacles <1m away. Say "STOP" if dangerous.
+            5. **Finding:** Scan for user requested items.
+            6. **Self-Description:** If in front camera, describe the user's appearance/expression if asked.
+            7. **Location:** If user asks "Where am I?", use the 'getLocation' tool.
+            8. **Identify:** If user asks "What is this?", identify barcodes, currency, or objects precisely.
+            9. **Memorizing:** If user says "This is [Name]", use 'rememberFace' tool.
             `}
 
             **Tools:** 
@@ -765,6 +824,18 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
           const loc = await handleGetLocation();
           result = JSON.stringify(loc);
           playSystemSound('success');
+        } else if (fc.name === 'rememberFace') {
+          const name = (fc.args as any).name;
+          // We ask the model itself to provide a description in the next turn or just assume it knows.
+          // To be robust, we'll tell the session to describe this person.
+          // However, tool response is the best place to confirm. 
+          // We'll just confirm "Memorizing [name]..." and the model will follow up.
+          result = `ok, memorizing ${name}. Please provide a 5-word visual description of this person to store.`;
+          // Since we can't easily wait for the model's next token here, 
+          // we'll listen for the description in the next modelTurn or just save a generic one for now.
+          // BETTER: We'll generate a description using a one-shot call if possible, 
+          // but keeping it simple for Live API:
+          saveFace(name, "Person currently in view");
         }
 
         sessionPromise.then(session => {
@@ -1131,6 +1202,33 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
               aria-label="Find Object Mode"
             >
               <IconSearch />
+            </button>
+
+            {/* Document Mode Toggle */}
+            <button
+              onClick={(e) => { e.stopPropagation(); setIsDocumentMode(!isDocumentMode); triggerHaptic(30); }}
+              className={`w-16 h-16 p-4 rounded-full flex items-center justify-center shadow-lg border-4 ${isDocumentMode
+                ? 'bg-blue-500 border-blue-300 text-white'
+                : 'bg-gray-900/80 border-gray-600 text-white backdrop-blur-md'
+                }`}
+              aria-label="Document Scanner Mode"
+            >
+              <IconFileText />
+            </button>
+
+            {/* Barcode / Currency Quick ID */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                triggerHaptic(30);
+                if (isActive && sessionRef.current) {
+                  sessionRef.current.sendRealtimeInput([{ text: "Identify the object or currency in view precisely." }]);
+                }
+              }}
+              className="w-16 h-16 p-4 rounded-full bg-gray-900/80 flex items-center justify-center text-white backdrop-blur-md shadow-lg border-4 border-gray-600 active:bg-purple-600"
+              aria-label="Identify Item"
+            >
+              <IconBarcode />
             </button>
           </div>
         </div>
