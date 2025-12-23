@@ -1156,6 +1156,12 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
   const handleStopWithAnalysis = async () => {
     triggerHaptic([50, 50]);
     const finalFrame = lastFrameRef.current;
+
+    // Clear playlist and reset tracks to ensure the audio element resets and re-triggers autoPlay
+    setPlaylist([]);
+    setCurrentTrackIndex(0);
+    setIsPlayingAudio(false);
+
     stopSession();
 
     if (finalFrame) {
@@ -1228,6 +1234,12 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
             setPlaylist(orderedPlaylist);
             setCurrentTrackIndex(0);
             setAnalysisProgress(100);
+
+            // Increment credit usage and notify user
+            spendCredit();
+            const remaining = userTier === 'pro' ? 'Unlimited' : (credits - 1);
+            announceInterface(`Analysis complete. ${remaining} credits remaining.`);
+
             // Auto-play via effect
             setShowTextReader(true); // Default to showing text for analysis
             playSystemSound('success');
@@ -1452,7 +1464,7 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
           ) : (
             <div className="flex flex-col items-center mx-2 truncate">
               <h1 className="text-3xl md:text-5xl font-extrabold text-yellow-400 tracking-wider drop-shadow-md" aria-label="Vision Ally">VisionAlly</h1>
-              <span className="text-[10px] font-mono text-zinc-500 mt-[-4px]">v1.3.2 (Christmas Gift 🎄)</span>
+              <span className="text-[10px] font-mono text-zinc-500 mt-[-4px]">v1.3.3 (Christmas Gift 🎄)</span>
             </div>
           )}
 
