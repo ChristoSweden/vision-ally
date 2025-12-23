@@ -56,6 +56,12 @@ const IconPause = () => (
   </svg>
 );
 
+const IconStop = () => (
+  <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor" stroke="none" className="w-full h-full">
+    <rect x="5" y="5" width="14" height="14" />
+  </svg>
+);
+
 
 const IconRewind = () => (
   <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor" stroke="none" className="w-full h-full">
@@ -1435,7 +1441,7 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
           ) : (
             <div className="flex flex-col items-center mx-2 truncate">
               <h1 className="text-3xl md:text-5xl font-extrabold text-yellow-400 tracking-wider drop-shadow-md" aria-label="Vision Ally">VisionAlly</h1>
-              <span className="text-[10px] font-mono text-zinc-500 mt-[-4px]">v1.2.1 (Christmas Gift to the World)</span>
+              <span className="text-[10px] font-mono text-zinc-500 mt-[-4px]">v1.3.0 (My gift to you 🎄)</span>
             </div>
           )}
 
@@ -1510,7 +1516,7 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
               <div
                 className="w-full h-full flex flex-col items-center justify-center pointer-events-auto"
                 onClick={() => {
-                  if (isActive) stopSession();
+                  if (isActive) handleStopWithAnalysis();
                   else startSessionWithConfig();
                   triggerHaptic(50);
                 }}
@@ -1523,10 +1529,14 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
                     <span className="text-5xl font-black text-white text-center">TAP TO START</span>
                   </div>
                 ) : (
-                  <div className={`w-64 h-64 rounded-full border-[12px] flex items-center justify-center shadow-2xl bg-black/50 ${isAnalyzing ? 'border-blue-500 animate-pulse' : 'border-yellow-500'}`} style={{ transform: `scale(${1 + volume / 100})` }}>
+                  <div
+                    className={`w-64 h-64 rounded-full border-[12px] flex flex-col items-center justify-center shadow-2xl bg-black/50 ${isAnalyzing ? 'border-blue-500 animate-pulse' : 'border-red-600'}`}
+                    style={{ transform: `scale(${1 + volume / 100})` }}
+                  >
                     <div className="w-32 h-32 text-white/90">
-                      {isAnalyzing ? <IconAnalyze /> : (facingMode === 'user' ? <IconEye /> : <IconCameraSwitch />)}
+                      {isAnalyzing ? <IconAnalyze /> : <IconStop />}
                     </div>
+                    {!isAnalyzing && <span className="text-white font-black mt-2">STOP</span>}
                   </div>
                 )}
               </div>
@@ -1557,19 +1567,18 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
                 e.stopPropagation();
                 triggerHaptic(50);
                 if (isActive) {
-                  // If already active, trigger a visual analysis request
-                  sessionRef.current?.sendRealtimeInput([{ text: "What do you see right now? Describe it clearly." }]);
-                  announceInterface("Analyzing current view");
+                  handleStopWithAnalysis();
+                  announceInterface("Stopping and analyzing");
                 } else {
                   startSessionWithConfig();
                   announceInterface("Starting session");
                 }
               }}
-              className={`flex-1 h-28 rounded-[2.5rem] flex items-center justify-center gap-4 border-4 transition-all shadow-2xl ${isActive ? 'bg-yellow-400 border-yellow-200 text-black' : 'bg-zinc-800 border-zinc-600 text-white animate-pulse'}`}
-              aria-label={isActive ? "Ask Vision Ally" : "Start Vision Assistant"}
+              className={`flex-1 h-28 rounded-[2.5rem] flex items-center justify-center gap-4 border-4 transition-all shadow-2xl ${isActive ? 'bg-red-600 border-red-400 text-white' : 'bg-zinc-800 border-zinc-600 text-white animate-pulse'}`}
+              aria-label={isActive ? "Stop and Describe" : "Start Vision Assistant"}
             >
-              <div className="w-10 h-10">{isActive ? <IconMic /> : <IconCamera />}</div>
-              <span className="text-3xl font-black uppercase tracking-tight">{isActive ? "Ask Ally" : "Start"}</span>
+              <div className="w-10 h-10">{isActive ? <IconStop /> : <IconCamera />}</div>
+              <span className="text-3xl font-black uppercase tracking-tight">{isActive ? "STOP" : "Start"}</span>
             </button>
 
             {/* Location Button */}

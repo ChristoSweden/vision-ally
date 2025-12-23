@@ -28,7 +28,7 @@ const SubscriptionContext = createContext<SubscriptionContextType | undefined>(u
 
 export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [userTier, setUserTier] = useState<UserTier>('free');
-    const [credits, setCredits] = useState(5); // 5 gift credits for new users
+    const [credits, setCredits] = useState(10); // 10 gift credits for new users
 
     // Persist state to local storage for demo purposes
     useEffect(() => {
@@ -51,7 +51,7 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
             try {
                 const parsed = JSON.parse(saved);
                 setUserTier(parsed.tier || 'free');
-                setCredits(parsed.credits ?? (urlParams.get('payment') === 'success' ? parsed.credits : 5));
+                setCredits(parsed.credits ?? (urlParams.get('payment') === 'success' ? parsed.credits : 10));
             } catch (e) {
                 console.error("Error loading subscription state", e);
             }
@@ -99,7 +99,7 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
     };
 
     const resetCredits = () => {
-        setCredits(5);
+        setCredits(10);
         setUserTier('free');
     };
 
