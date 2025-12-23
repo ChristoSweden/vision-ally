@@ -1178,7 +1178,7 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
       try {
         const ai = new GoogleGenAI({ apiKey });
         const analysisResp = await ai.models.generateContent({
-          model: 'gemini-2.0-flash-exp',
+          model: 'gemini-1.5-pro',
           contents: [{
             parts: [
               { inlineData: { mimeType: 'image/jpeg', data: finalFrame } },
@@ -1230,10 +1230,17 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
           }
         }
       } catch (e) {
-        clearInterval(progressTimer); // Ensure timer is cleared on error
+        clearInterval(progressTimer);
         console.error("Full Analysis Error:", e);
         playSystemSound('error');
-        setError("Analysis Failed: " + (e as Error).message);
+
+        // Check if this is a quota error
+        const errorMessage = (e as Error).message || '';
+        if (errorMessage.includes('quota') || errorMessage.includes('limit') || errorMessage.includes('429')) {
+          setError("API Quota Exceeded. Please try again in a few minutes or contact support for a higher quota.");
+        } else {
+          setError("Analysis Failed: " + errorMessage);
+        }
       } finally {
         setIsAnalyzing(false);
         setAnalysisProgress(0);
@@ -1474,7 +1481,7 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
           ) : (
             <div className="flex flex-col items-center mx-2 truncate">
               <h1 className="text-3xl md:text-5xl font-extrabold text-yellow-400 tracking-wider drop-shadow-md" aria-label="Vision Ally">VisionAlly</h1>
-              <span className="text-[10px] font-mono text-zinc-500 mt-[-4px]">v1.4.0 (First Noel 🌟)</span>
+              <span className="text-[10px] font-mono text-zinc-500 mt-[-4px]">v1.4.1 (Silent Night 🌙)</span>
             </div>
           )}
 
