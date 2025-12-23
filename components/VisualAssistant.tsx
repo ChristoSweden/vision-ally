@@ -1368,6 +1368,22 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
     }
   }, [currentTrackIndex, showTextReader]);
 
+  // Critical fix: force audio playback when playlist changes or track index changes
+  // This bypasses browser auto-play restrictions that sometimes block the <audio> element 
+  // after a long asynchronous analysis process.
+  useEffect(() => {
+    if (playlist.length > 0 && audioRef.current) {
+      const playPromise = audioRef.current.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(error => {
+          console.warn("Audio playback failed or was blocked:", error);
+          // If blocked, the user might need to tap to resume audio which is usually 
+          // already the case since analysis is triggered by user interaction.
+        });
+      }
+    }
+  }, [playlist, currentTrackIndex]);
+
   useEffect(() => {
     mountedRef.current = true;
     return () => {
@@ -1464,7 +1480,7 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
           ) : (
             <div className="flex flex-col items-center mx-2 truncate">
               <h1 className="text-3xl md:text-5xl font-extrabold text-yellow-400 tracking-wider drop-shadow-md" aria-label="Vision Ally">VisionAlly</h1>
-              <span className="text-[10px] font-mono text-zinc-500 mt-[-4px]">v1.3.3 (Christmas Gift 🎄)</span>
+              <span className="text-[10px] font-mono text-zinc-500 mt-[-4px]">v1.3.4 (Joy to the World 🎄)</span>
             </div>
           )}
 
