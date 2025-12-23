@@ -1176,7 +1176,7 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
       }, 300);
 
       try {
-        const ai = new GoogleGenAI({ apiKey });
+        const ai = new GoogleGenAI({ apiKey, apiVersion: 'v1' });
         const analysisResp = await ai.models.generateContent({
           model: 'gemini-1.5-flash',
           contents: [{
@@ -1488,7 +1488,7 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
           ) : (
             <div className="flex flex-col items-center mx-2 truncate">
               <h1 className="text-3xl md:text-5xl font-extrabold text-yellow-400 tracking-wider drop-shadow-md" aria-label="Vision Ally">VisionAlly</h1>
-              <span className="text-[10px] font-mono text-zinc-500 mt-[-4px]">v1.3.7 (Joy to the World 🎄)</span>
+              <span className="text-[10px] font-mono text-zinc-500 mt-[-4px]">v1.3.8 (Silver Bells 🔔)</span>
             </div>
           )}
 
