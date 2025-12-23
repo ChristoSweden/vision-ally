@@ -1176,9 +1176,9 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
       }, 300);
 
       try {
-        const ai = new GoogleGenAI({ apiKey }); // Revert to default (v1beta) for Gemini 1.5 Flash compatibility
+        const ai = new GoogleGenAI({ apiKey });
         const analysisResp = await ai.models.generateContent({
-          model: 'gemini-1.5-flash',
+          model: 'gemini-2.0-flash-exp',
           contents: [{
             parts: [
               { inlineData: { mimeType: 'image/jpeg', data: finalFrame } },
@@ -1195,47 +1195,15 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
         if (text) {
           // Split text into sentences for synchronized highlighting
           const sentences = splitTextIntoSentences(text);
-          const playlistResults = new Array(sentences.length);
+          console.log("Using browser TTS for sentences:", sentences.length);
 
-          // Generate audio for each sentence concurrently but preserve order
-          let processedCount = 0;
-          await Promise.all(sentences.map(async (sentence, index) => {
-            try {
-              const ttsResp = await ai.models.generateContent({
-                model: 'gemini-1.5-flash',
-                contents: [{ parts: [{ text: sentence }] }],
-                config: {
-                  responseModalities: [Modality.AUDIO],
-                  speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } } }
-                }
-              });
+          // Use browser TTS exclusively to avoid API quota issues
+          const finalPlaylist = sentences.map((sentence, index) => {
+            setAnalysisProgress(50 + Math.floor(((index + 1) / sentences.length) * 50));
+            return { text: sentence, url: 'fallback' };
+          });
 
-              const candidate = ttsResp.candidates?.[0];
-              const audioPart = candidate?.content?.parts?.find(p => p.inlineData);
-              const audioData = audioPart?.inlineData;
-
-              if (audioData) {
-                const bytes = decodeBase64ToBytes(audioData.data);
-                const blob = new Blob([bytes.buffer as ArrayBuffer], { type: audioData.mimeType });
-                const url = URL.createObjectURL(blob);
-                playlistResults[index] = { text: sentence, url };
-              } else {
-                // Fallback: Use browser TTS if native audio generation is not supported/fails
-                console.warn(`No native audio for sentence ${index}, using browser fallback.`);
-                playlistResults[index] = { text: sentence, url: 'fallback' };
-              }
-            } catch (e) {
-              console.error("TTS generation failed for segment", e);
-            } finally {
-              processedCount++;
-              setAnalysisProgress(50 + Math.floor((processedCount / sentences.length) * 50));
-            }
-          }));
-
-          // Sort playlist to match original sentence order (Promise.all doesn't guarantee completion order, but map index does if we map back)
-          // Re-do to ensure order
-          const finalPlaylist = playlistResults.filter(p => p !== undefined);
-          console.log("Playlist generated with segments:", finalPlaylist.length);
+          console.log("Playlist generated with browser TTS:", finalPlaylist.length);
 
           if (finalPlaylist.length > 0) {
             setPlaylist(finalPlaylist);
@@ -1506,7 +1474,7 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
           ) : (
             <div className="flex flex-col items-center mx-2 truncate">
               <h1 className="text-3xl md:text-5xl font-extrabold text-yellow-400 tracking-wider drop-shadow-md" aria-label="Vision Ally">VisionAlly</h1>
-              <span className="text-[10px] font-mono text-zinc-500 mt-[-4px]">v1.3.9 (Auld Lang Syne 🎆)</span>
+              <span className="text-[10px] font-mono text-zinc-500 mt-[-4px]">v1.4.0 (First Noel 🌟)</span>
             </div>
           )}
 
