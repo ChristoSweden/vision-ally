@@ -1178,7 +1178,7 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
       try {
         const ai = new GoogleGenAI({ apiKey });
         const analysisResp = await ai.models.generateContent({
-          model: 'gemini-1.5-pro',
+          model: 'gemini-1.5-pro-latest',
           contents: [{
             parts: [
               { inlineData: { mimeType: 'image/jpeg', data: finalFrame } },
