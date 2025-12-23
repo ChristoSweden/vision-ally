@@ -1178,7 +1178,7 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
       try {
         const ai = new GoogleGenAI({ apiKey });
         const analysisResp = await ai.models.generateContent({
-          model: 'gemini-2.0-flash',
+          model: 'gemini-1.5-flash',
           contents: [{
             parts: [
               { inlineData: { mimeType: 'image/jpeg', data: finalFrame } },
@@ -1202,7 +1202,7 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
           await Promise.all(sentences.map(async (sentence, index) => {
             try {
               const ttsResp = await ai.models.generateContent({
-                model: 'gemini-2.0-flash',
+                model: 'gemini-1.5-flash',
                 contents: [{ parts: [{ text: sentence }] }],
                 config: {
                   responseModalities: [Modality.AUDIO],
@@ -1488,7 +1488,7 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
           ) : (
             <div className="flex flex-col items-center mx-2 truncate">
               <h1 className="text-3xl md:text-5xl font-extrabold text-yellow-400 tracking-wider drop-shadow-md" aria-label="Vision Ally">VisionAlly</h1>
-              <span className="text-[10px] font-mono text-zinc-500 mt-[-4px]">v1.3.6 (Joy to the World 🎄)</span>
+              <span className="text-[10px] font-mono text-zinc-500 mt-[-4px]">v1.3.7 (Joy to the World 🎄)</span>
             </div>
           )}
 
