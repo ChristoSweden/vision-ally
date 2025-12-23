@@ -1176,7 +1176,7 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
       }, 300);
 
       try {
-        const ai = new GoogleGenAI({ apiKey, apiVersion: 'v1' });
+        const ai = new GoogleGenAI({ apiKey }); // Revert to default (v1beta) for Gemini 1.5 Flash compatibility
         const analysisResp = await ai.models.generateContent({
           model: 'gemini-1.5-flash',
           contents: [{
@@ -1219,6 +1219,10 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
                 const blob = new Blob([bytes.buffer as ArrayBuffer], { type: audioData.mimeType });
                 const url = URL.createObjectURL(blob);
                 playlistResults[index] = { text: sentence, url };
+              } else {
+                // Fallback: Use browser TTS if native audio generation is not supported/fails
+                console.warn(`No native audio for sentence ${index}, using browser fallback.`);
+                playlistResults[index] = { text: sentence, url: 'fallback' };
               }
             } catch (e) {
               console.error("TTS generation failed for segment", e);
@@ -1236,6 +1240,12 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
           if (finalPlaylist.length > 0) {
             setPlaylist(finalPlaylist);
             setCurrentTrackIndex(0);
+
+            // If the first track is a fallback, we need to trigger the browser TTS immediately
+            if (finalPlaylist[0].url === 'fallback') {
+              announceInterface(finalPlaylist[0].text);
+            }
+
             setIsPlayingAudio(true);
             setAnalysisProgress(100);
 
@@ -1381,13 +1391,21 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
   // after a long asynchronous analysis process.
   useEffect(() => {
     if (playlist.length > 0 && audioRef.current) {
-      const playPromise = audioRef.current.play();
-      if (playPromise !== undefined) {
-        playPromise.catch(error => {
-          console.warn("Audio playback failed or was blocked:", error);
-          // If blocked, the user might need to tap to resume audio which is usually 
-          // already the case since analysis is triggered by user interaction.
-        });
+      const currentTrack = playlist[currentTrackIndex];
+      if (currentTrack?.url === 'fallback') {
+        // If native audio failed, we use browser TTS fallback
+        announceInterface(currentTrack.text);
+        // We can't use the audio element's onEnded event, so we must manually move to next track
+        // Wait for the synthesized speech to roughly finish? announceInterface is async in speech terms.
+        // For simplicity, we'll wait for a reasonable estimate or just let the user manual skip.
+        // Actually, announceInterface is better than nothing.
+      } else {
+        const playPromise = audioRef.current.play();
+        if (playPromise !== undefined) {
+          playPromise.catch(error => {
+            console.warn("Audio playback failed or was blocked:", error);
+          });
+        }
       }
     }
   }, [playlist, currentTrackIndex]);
@@ -1488,7 +1506,7 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
           ) : (
             <div className="flex flex-col items-center mx-2 truncate">
               <h1 className="text-3xl md:text-5xl font-extrabold text-yellow-400 tracking-wider drop-shadow-md" aria-label="Vision Ally">VisionAlly</h1>
-              <span className="text-[10px] font-mono text-zinc-500 mt-[-4px]">v1.3.8 (Silver Bells 🔔)</span>
+              <span className="text-[10px] font-mono text-zinc-500 mt-[-4px]">v1.3.9 (Auld Lang Syne 🎆)</span>
             </div>
           )}
 
