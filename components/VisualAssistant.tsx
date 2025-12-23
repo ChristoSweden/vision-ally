@@ -1170,15 +1170,15 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
       setStatus("ANALYZING...");
       playSystemSound('on');
 
-      // Dynamic progress increment during API wait
+      // Dynamic progress increment during API wait (Vision Phase)
       const progressTimer = setInterval(() => {
-        setAnalysisProgress(prev => (prev < 48 ? prev + 2 : prev));
-      }, 500);
+        setAnalysisProgress(prev => (prev < 45 ? prev + 3 : prev));
+      }, 300);
 
       try {
         const ai = new GoogleGenAI({ apiKey });
         const analysisResp = await ai.models.generateContent({
-          model: 'gemini-1.5-flash',
+          model: 'gemini-2.0-flash',
           contents: {
             parts: [
               { inlineData: { mimeType: 'image/jpeg', data: finalFrame } },
@@ -1191,34 +1191,34 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
         setAnalysisProgress(50);
 
         const text = analysisResp.text;
+        console.log("Analysis Result:", text);
         if (text) {
           // Split text into sentences for synchronized highlighting
           const sentences = splitTextIntoSentences(text);
-          const newPlaylist: { text: string, url: string }[] = [];
+          const playlistResults = new Array(sentences.length);
 
-          // Generate audio for each sentence concurrently
+          // Generate audio for each sentence concurrently but preserve order
           let processedCount = 0;
-          await Promise.all(sentences.map(async (sentence) => {
+          await Promise.all(sentences.map(async (sentence, index) => {
             try {
               const ttsResp = await ai.models.generateContent({
-                model: 'gemini-1.5-flash',
+                model: 'gemini-2.0-flash',
                 contents: { parts: [{ text: sentence }] },
                 config: {
                   responseModalities: [Modality.AUDIO],
                   speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } } }
                 }
               });
-              const audioData = ttsResp.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+
+              const candidate = ttsResp.candidates?.[0];
+              const audioPart = candidate?.content?.parts?.find(p => p.inlineData);
+              const audioData = audioPart?.inlineData;
+
               if (audioData) {
-                const bytes = decodeBase64ToBytes(audioData);
-                const int16Array = new Int16Array(bytes.buffer);
-                const float32Array = new Float32Array(int16Array.length);
-                for (let i = 0; i < int16Array.length; i++) {
-                  float32Array[i] = int16Array[i] / 32768.0;
-                }
-                const wavBlob = createWavBlob(float32Array, 24000);
-                const url = URL.createObjectURL(wavBlob);
-                newPlaylist.push({ text: sentence, url });
+                const bytes = decodeBase64ToBytes(audioData.data);
+                const blob = new Blob([bytes.buffer], { type: audioData.mimeType });
+                const url = URL.createObjectURL(blob);
+                playlistResults[index] = { text: sentence, url };
               }
             } catch (e) {
               console.error("TTS generation failed for segment", e);
@@ -1230,15 +1230,13 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
 
           // Sort playlist to match original sentence order (Promise.all doesn't guarantee completion order, but map index does if we map back)
           // Re-do to ensure order
-          const orderedPlaylist: { text: string, url: string }[] = [];
-          for (const sentence of sentences) {
-            const item = newPlaylist.find(p => p.text === sentence);
-            if (item) orderedPlaylist.push(item);
-          }
+          const finalPlaylist = playlistResults.filter(p => p !== undefined);
+          console.log("Playlist generated with segments:", finalPlaylist.length);
 
-          if (orderedPlaylist.length > 0) {
-            setPlaylist(orderedPlaylist);
+          if (finalPlaylist.length > 0) {
+            setPlaylist(finalPlaylist);
             setCurrentTrackIndex(0);
+            setIsPlayingAudio(true);
             setAnalysisProgress(100);
 
             // Increment credit usage and notify user
@@ -1255,6 +1253,7 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
         }
       } catch (e) {
         clearInterval(progressTimer); // Ensure timer is cleared on error
+        console.error("Full Analysis Error:", e);
         playSystemSound('error');
         setError("Analysis Failed");
       } finally {
