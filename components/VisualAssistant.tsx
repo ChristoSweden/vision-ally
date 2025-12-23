@@ -1179,12 +1179,12 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
         const ai = new GoogleGenAI({ apiKey });
         const analysisResp = await ai.models.generateContent({
           model: 'gemini-2.0-flash',
-          contents: {
+          contents: [{
             parts: [
               { inlineData: { mimeType: 'image/jpeg', data: finalFrame } },
               { text: `Detailed analysis: Read all text verbatim. Describe objects, colors, and layout. Speak in ${language}.` }
             ]
-          }
+          }]
         });
 
         clearInterval(progressTimer);
@@ -1203,7 +1203,7 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
             try {
               const ttsResp = await ai.models.generateContent({
                 model: 'gemini-2.0-flash',
-                contents: { parts: [{ text: sentence }] },
+                contents: [{ parts: [{ text: sentence }] }],
                 config: {
                   responseModalities: [Modality.AUDIO],
                   speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } } }
@@ -1216,7 +1216,7 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
 
               if (audioData) {
                 const bytes = decodeBase64ToBytes(audioData.data);
-                const blob = new Blob([bytes.buffer], { type: audioData.mimeType });
+                const blob = new Blob([bytes.buffer as ArrayBuffer], { type: audioData.mimeType });
                 const url = URL.createObjectURL(blob);
                 playlistResults[index] = { text: sentence, url };
               }
@@ -1255,7 +1255,7 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
         clearInterval(progressTimer); // Ensure timer is cleared on error
         console.error("Full Analysis Error:", e);
         playSystemSound('error');
-        setError("Analysis Failed");
+        setError("Analysis Failed: " + (e as Error).message);
       } finally {
         setIsAnalyzing(false);
         setAnalysisProgress(0);
@@ -1488,7 +1488,7 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
           ) : (
             <div className="flex flex-col items-center mx-2 truncate">
               <h1 className="text-3xl md:text-5xl font-extrabold text-yellow-400 tracking-wider drop-shadow-md" aria-label="Vision Ally">VisionAlly</h1>
-              <span className="text-[10px] font-mono text-zinc-500 mt-[-4px]">v1.3.5 (O Holy Night 🎄)</span>
+              <span className="text-[10px] font-mono text-zinc-500 mt-[-4px]">v1.3.6 (Joy to the World 🎄)</span>
             </div>
           )}
 
