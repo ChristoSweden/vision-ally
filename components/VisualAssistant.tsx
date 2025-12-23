@@ -1166,14 +1166,19 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
 
     if (finalFrame) {
       setIsAnalyzing(true);
-      setAnalysisProgress(10);
+      setAnalysisProgress(0); // Start at zero per user request
       setStatus("ANALYZING...");
       playSystemSound('on');
+
+      // Dynamic progress increment during API wait
+      const progressTimer = setInterval(() => {
+        setAnalysisProgress(prev => (prev < 48 ? prev + 2 : prev));
+      }, 500);
 
       try {
         const ai = new GoogleGenAI({ apiKey });
         const analysisResp = await ai.models.generateContent({
-          model: 'gemini-3-flash-preview',
+          model: 'gemini-1.5-flash',
           contents: {
             parts: [
               { inlineData: { mimeType: 'image/jpeg', data: finalFrame } },
@@ -1182,6 +1187,7 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
           }
         });
 
+        clearInterval(progressTimer);
         setAnalysisProgress(50);
 
         const text = analysisResp.text;
@@ -1195,7 +1201,7 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
           await Promise.all(sentences.map(async (sentence) => {
             try {
               const ttsResp = await ai.models.generateContent({
-                model: 'gemini-2.5-flash-preview-tts',
+                model: 'gemini-1.5-flash',
                 contents: { parts: [{ text: sentence }] },
                 config: {
                   responseModalities: [Modality.AUDIO],
@@ -1238,6 +1244,8 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
             // Increment credit usage and notify user
             spendCredit();
             const remaining = userTier === 'pro' ? 'Unlimited' : (credits - 1);
+
+            // Speak credits first, then the analysis will auto-play via effect
             announceInterface(`Analysis complete. ${remaining} credits remaining.`);
 
             // Auto-play via effect
@@ -1246,6 +1254,7 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
           }
         }
       } catch (e) {
+        clearInterval(progressTimer); // Ensure timer is cleared on error
         playSystemSound('error');
         setError("Analysis Failed");
       } finally {
@@ -1480,7 +1489,7 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
           ) : (
             <div className="flex flex-col items-center mx-2 truncate">
               <h1 className="text-3xl md:text-5xl font-extrabold text-yellow-400 tracking-wider drop-shadow-md" aria-label="Vision Ally">VisionAlly</h1>
-              <span className="text-[10px] font-mono text-zinc-500 mt-[-4px]">v1.3.4 (Joy to the World 🎄)</span>
+              <span className="text-[10px] font-mono text-zinc-500 mt-[-4px]">v1.3.5 (O Holy Night 🎄)</span>
             </div>
           )}
 
