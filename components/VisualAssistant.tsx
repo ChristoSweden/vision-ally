@@ -370,6 +370,7 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
   const [isActive, setIsActive] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [status, setStatus] = useState<string>("Ready");
+  const [analysisProgress, setAnalysisProgress] = useState<number>(0);
   const [error, setError] = useState<string | null>(null);
   const [volume, setVolume] = useState<number>(0);
 
@@ -1159,6 +1160,7 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
 
     if (finalFrame) {
       setIsAnalyzing(true);
+      setAnalysisProgress(10);
       setStatus("ANALYZING...");
       playSystemSound('on');
 
@@ -1174,13 +1176,16 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
           }
         });
 
+        setAnalysisProgress(50);
+
         const text = analysisResp.text;
         if (text) {
           // Split text into sentences for synchronized highlighting
           const sentences = splitTextIntoSentences(text);
           const newPlaylist: { text: string, url: string }[] = [];
 
-          // Generate audio for each sentence concurrently (with small limit if needed, but Gemini is fast)
+          // Generate audio for each sentence concurrently
+          let processedCount = 0;
           await Promise.all(sentences.map(async (sentence) => {
             try {
               const ttsResp = await ai.models.generateContent({
@@ -1205,6 +1210,9 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
               }
             } catch (e) {
               console.error("TTS generation failed for segment", e);
+            } finally {
+              processedCount++;
+              setAnalysisProgress(50 + Math.floor((processedCount / sentences.length) * 50));
             }
           }));
 
@@ -1219,8 +1227,10 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
           if (orderedPlaylist.length > 0) {
             setPlaylist(orderedPlaylist);
             setCurrentTrackIndex(0);
+            setAnalysisProgress(100);
             // Auto-play via effect
             setShowTextReader(true); // Default to showing text for analysis
+            playSystemSound('success');
           }
         }
       } catch (e) {
@@ -1228,6 +1238,7 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
         setError("Analysis Failed");
       } finally {
         setIsAnalyzing(false);
+        setAnalysisProgress(0);
         setStatus("READY");
       }
     }
@@ -1441,7 +1452,7 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
           ) : (
             <div className="flex flex-col items-center mx-2 truncate">
               <h1 className="text-3xl md:text-5xl font-extrabold text-yellow-400 tracking-wider drop-shadow-md" aria-label="Vision Ally">VisionAlly</h1>
-              <span className="text-[10px] font-mono text-zinc-500 mt-[-4px]">v1.3.0 (My gift to you 🎄)</span>
+              <span className="text-[10px] font-mono text-zinc-500 mt-[-4px]">v1.3.1 (Progress Insight 📈)</span>
             </div>
           )}
 
@@ -1533,8 +1544,13 @@ export const VisualAssistant: React.FC<VisualAssistantProps> = ({ apiKey }) => {
                     className={`w-64 h-64 rounded-full border-[12px] flex flex-col items-center justify-center shadow-2xl bg-black/50 ${isAnalyzing ? 'border-blue-500 animate-pulse' : 'border-red-600'}`}
                     style={{ transform: `scale(${1 + volume / 100})` }}
                   >
-                    <div className="w-32 h-32 text-white/90">
-                      {isAnalyzing ? <IconAnalyze /> : <IconStop />}
+                    <div className="w-32 h-32 text-white/90 relative flex items-center justify-center">
+                      {isAnalyzing ? (
+                        <>
+                          <IconAnalyze />
+                          <span className="absolute text-2xl font-black text-white drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)]">{analysisProgress}%</span>
+                        </>
+                      ) : <IconStop />}
                     </div>
                     {!isAnalyzing && <span className="text-white font-black mt-2">STOP</span>}
                   </div>
