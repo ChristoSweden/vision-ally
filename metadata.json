@@ -1,0 +1,8 @@
+{
+  "name": "VisionAlly 3.0 LIVE",
+  "description": "Real-time AI visual assistant for the visually impaired using Gemini Live.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
